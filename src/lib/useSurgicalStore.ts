@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react';
-import { SurgicalCase, Invoice, AppSettings, SurgeryStatus, InvoiceStatus } from '../types/surgical';
-import { INITIAL_CASES, INITIAL_INVOICES, INITIAL_SETTINGS } from './mockData';
+import { SurgicalCase, Invoice, AppSettings, SurgeryStatus, InvoiceStatus, MonthlyLiquidationSchedule } from '../types/surgical';
+import { INITIAL_CASES, INITIAL_INVOICES, INITIAL_SETTINGS, INITIAL_MONTHLY_SCHEDULES } from './mockData';
 
-const STORAGE_KEY_CASES = 'surgical_hub_cases_v1';
-const STORAGE_KEY_INVOICES = 'surgical_hub_invoices_v1';
-const STORAGE_KEY_SETTINGS = 'surgical_hub_settings_v1';
+const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v5';
+const STORAGE_KEY_INVOICES = 'ciavarelli_hub_invoices_v5';
+const STORAGE_KEY_SETTINGS = 'ciavarelli_hub_settings_v5';
+const STORAGE_KEY_SCHEDULES = 'ciavarelli_hub_schedules_v5';
 
 export function useSurgicalStore() {
   const [cases, setCases] = useState<SurgicalCase[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CASES);
-      return saved ? JSON.parse(saved) : INITIAL_CASES;
+      if (!saved) return INITIAL_CASES;
+      const parsed = JSON.parse(saved);
+      // Ensure it contains real cases and not legacy fake data
+      const hasRealCiavarelliCase = parsed.some((c: any) => c.patientName?.includes('Quintana') || c.patientName?.includes('GARCIA'));
+      return hasRealCiavarelliCase ? parsed : INITIAL_CASES;
     } catch {
       return INITIAL_CASES;
     }
@@ -19,7 +24,11 @@ export function useSurgicalStore() {
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_INVOICES);
-      return saved ? JSON.parse(saved) : INITIAL_INVOICES;
+      if (!saved) return INITIAL_INVOICES;
+      const parsed = JSON.parse(saved);
+      const hasRealAfipInvoices = parsed.some((i: any) => i.invoiceNumber?.includes('00003-00000275') || i.pointOfSale === '00003');
+      const hasLiquidaciones = parsed.some((i: any) => i.attachedDocuments?.some((d: any) => d.fileType === 'liquidacion'));
+      return hasRealAfipInvoices && hasLiquidaciones ? parsed : INITIAL_INVOICES;
     } catch {
       return INITIAL_INVOICES;
     }
@@ -31,6 +40,15 @@ export function useSurgicalStore() {
       return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
     } catch {
       return INITIAL_SETTINGS;
+    }
+  });
+
+  const [schedules, setSchedules] = useState<MonthlyLiquidationSchedule[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_SCHEDULES);
+      return saved ? JSON.parse(saved) : INITIAL_MONTHLY_SCHEDULES;
+    } catch {
+      return INITIAL_MONTHLY_SCHEDULES;
     }
   });
 
@@ -59,6 +77,14 @@ export function useSurgicalStore() {
     }
   }, [settings]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_SCHEDULES, JSON.stringify(schedules));
+    } catch (e) {
+      console.error('Failed to save schedules to localStorage', e);
+    }
+  }, [schedules]);
+
   // Surgical Cases actions
   const addCase = (newCaseData: Omit<SurgicalCase, 'id' | 'createdAt' | 'updatedAt'>) => {
     const id = `case-${Date.now()}`;
@@ -77,23 +103,7 @@ export function useSurgicalStore() {
     setCases(prev =>
       prev.map(c => {
         if (c.id === id) {
-          const updated = { ...c, ...updates, updatedAt: new Date().toISOString() };
-          // If patient name or clinic changed, keep linked invoice in sync
-          if (updates.patientName || updates.estimatedSurgeryClinic) {
-            setInvoices(invs =>
-              invs.map(inv =>
-                inv.caseId === id
-                  ? {
-                      ...inv,
-                      patientName: updates.patientName || inv.patientName,
-                      clinic: updates.estimatedSurgeryClinic || inv.clinic,
-                      updatedAt: new Date().toISOString(),
-                    }
-                  : inv
-              )
-            );
-          }
-          return updated;
+          return { ...c, ...updates, updatedAt: new Date().toISOString() };
         }
         return c;
       })
@@ -106,7 +116,6 @@ export function useSurgicalStore() {
 
   const deleteCase = (id: string) => {
     setCases(prev => prev.filter(c => c.id !== id));
-    // Detach or delete associated invoice
     setInvoices(prev => prev.filter(inv => inv.caseId !== id));
   };
 
@@ -122,7 +131,6 @@ export function useSurgicalStore() {
     };
     setInvoices(prev => [newInvoice, ...prev]);
 
-    // Link back to case if specified
     if (newInvData.caseId) {
       setCases(prev =>
         prev.map(c => (c.id === newInvData.caseId ? { ...c, invoiceId: id } : c))
@@ -150,6 +158,13 @@ export function useSurgicalStore() {
     setInvoices(prev => prev.filter(inv => inv.id !== id));
     setCases(prev =>
       prev.map(c => (c.invoiceId === id ? { ...c, invoiceId: undefined } : c))
+    );
+  };
+
+  // Schedules actions
+  const updateSchedule = (monthKey: string, updates: Partial<MonthlyLiquidationSchedule>) => {
+    setSchedules(prev =>
+      prev.map(s => (s.monthKey === monthKey ? { ...s, ...updates } : s))
     );
   };
 
@@ -181,26 +196,25 @@ export function useSurgicalStore() {
     setCases(INITIAL_CASES);
     setInvoices(INITIAL_INVOICES);
     setSettings(INITIAL_SETTINGS);
+    setSchedules(INITIAL_MONTHLY_SCHEDULES);
     localStorage.removeItem(STORAGE_KEY_CASES);
     localStorage.removeItem(STORAGE_KEY_INVOICES);
     localStorage.removeItem(STORAGE_KEY_SETTINGS);
+    localStorage.removeItem(STORAGE_KEY_SCHEDULES);
   };
 
-  // Quick case-to-invoice generator
   const createInvoiceForCase = (c: SurgicalCase) => {
-    const materialsTotal = (c.materials || []).reduce((acc, m) => acc + (m.cost * m.quantity), 0);
-    const estimatedSurgeonFee = 750000;
-    const base = materialsTotal + estimatedSurgeonFee;
-    const taxRate = settings.defaultTaxRate || 21;
-    const totalAmount = Math.round(base * (1 + taxRate / 100));
-
+    const estimatedSurgeonFee = c.estimatedSettlementAmount || 500000;
     const todayStr = new Date().toISOString().split('T')[0];
-    const expectedDate = new Date();
-    expectedDate.setDate(expectedDate.getDate() + 30);
-    const expectedStr = expectedDate.toISOString().split('T')[0];
+
+    // Pago esperado el día 20 del mes de emisión
+    const issueDateObj = new Date();
+    const expectedYear = issueDateObj.getFullYear();
+    const expectedMonth = String(issueDateObj.getMonth() + 1).padStart(2, '0');
+    const expectedStr = `${expectedYear}-${expectedMonth}-20`;
 
     const count = invoices.length + 1;
-    const invoiceNumber = `FAC-2026-${String(count).padStart(4, '0')}`;
+    const invoiceNumber = `FAC-2026-${String(count).padStart(2, '0')}`;
 
     const newInv = addInvoice({
       invoiceNumber,
@@ -210,14 +224,14 @@ export function useSurgicalStore() {
       insuranceProvider: c.insuranceProvider,
       clinic: c.estimatedSurgeryClinic,
       surgeonFee: estimatedSurgeonFee,
-      materialsCost: materialsTotal,
-      taxRate,
-      totalAmount,
+      materialsCost: 0,
+      taxRate: 0,
+      totalAmount: estimatedSurgeonFee,
       currency: settings.defaultCurrency,
       issueDate: todayStr,
       expectedCollectionDate: expectedStr,
-      status: 'EMITIDA',
-      auditNotes: `Factura generada automáticamente para la cirugía ${c.procedureName}.`,
+      status: 'PENDIENTE',
+      auditNotes: `Liquidación generada para ${c.patientName} (${c.procedureName}). Pago esperado el día 20.`,
     });
 
     return newInv;
@@ -227,6 +241,7 @@ export function useSurgicalStore() {
     cases,
     invoices,
     settings,
+    schedules,
     addCase,
     updateCase,
     updateCaseStatus,
@@ -235,6 +250,7 @@ export function useSurgicalStore() {
     updateInvoice,
     updateInvoiceStatus,
     deleteInvoice,
+    updateSchedule,
     updateSettings,
     addCatalogItem,
     removeCatalogItem,

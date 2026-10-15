@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useSurgicalStore } from './lib/useSurgicalStore';
 import { calculateFinancialMetrics, calculateSurgeryMetrics } from './lib/surgicalLogic';
 import { Header } from './components/Header';
+import { LiquidationCalendar } from './components/LiquidationCalendar';
 import { SurgicalCasesList } from './components/SurgicalCasesList';
 import { InvoicesList } from './components/InvoicesList';
 import { AnalyticsView } from './components/AnalyticsView';
@@ -10,13 +11,15 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { CaseEditModal } from './components/CaseEditModal';
 import { InvoiceEditModal } from './components/InvoiceEditModal';
 import { AIChatBox } from './components/AIChatBox';
-import { SurgicalCase, Invoice } from './types/surgical';
+import { DocumentViewerModal } from './components/DocumentViewerModal';
+import { SurgicalCase, Invoice, AttachedDocument } from './types/surgical';
 
 export default function App() {
   const {
     cases,
     invoices,
     settings,
+    schedules,
     addCase,
     updateCase,
     updateCaseStatus,
@@ -25,6 +28,7 @@ export default function App() {
     updateInvoice,
     updateInvoiceStatus,
     deleteInvoice,
+    updateSchedule,
     updateSettings,
     addCatalogItem,
     removeCatalogItem,
@@ -32,8 +36,8 @@ export default function App() {
     createInvoiceForCase,
   } = useSurgicalStore();
 
-  // Active navigation tab
-  const [activeTab, setActiveTab] = useState<'cases' | 'invoices' | 'analytics' | 'sheets' | 'config'>('cases');
+  // Active navigation tab (default to the Calendario de Cobros requested by the user!)
+  const [activeTab, setActiveTab] = useState<'calendar' | 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config'>('calendar');
 
   // Modal states
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
@@ -41,6 +45,21 @@ export default function App() {
 
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [invoiceToEdit, setInvoiceToEdit] = useState<Invoice | null>(null);
+
+  // Document & Medical Protocol Viewer Modal State
+  const [viewingDocState, setViewingDocState] = useState<{
+    doc: AttachedDocument;
+    surgicalCase?: SurgicalCase;
+    invoice?: Invoice;
+  } | null>(null);
+
+  const handleOpenDocument = (
+    doc: AttachedDocument,
+    c?: SurgicalCase,
+    inv?: Invoice
+  ) => {
+    setViewingDocState({ doc, surgicalCase: c, invoice: inv });
+  };
 
   // AI Chat Assistant
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -71,10 +90,10 @@ export default function App() {
   const handleSaveCase = (caseData: any) => {
     if (caseToEdit) {
       updateCase(caseToEdit.id, caseData);
-      showToast(`Cirugía de ${caseData.patientName} actualizada correctamente.`);
+      showToast(`Expediente de ${caseData.patientName} actualizado correctamente.`);
     } else {
       addCase(caseData);
-      showToast(`Nueva cirugía para ${caseData.patientName} registrada.`);
+      showToast(`Nuevo expediente para ${caseData.patientName} registrado.`);
     }
   };
 
@@ -92,16 +111,16 @@ export default function App() {
   const handleSaveInvoice = (invoiceData: any) => {
     if (invoiceToEdit) {
       updateInvoice(invoiceToEdit.id, invoiceData);
-      showToast(`Factura ${invoiceData.invoiceNumber} actualizada.`);
+      showToast(`Liquidación ${invoiceData.invoiceNumber} actualizada.`);
     } else {
       addInvoice(invoiceData);
-      showToast(`Factura ${invoiceData.invoiceNumber} creada con éxito.`);
+      showToast(`Liquidación ${invoiceData.invoiceNumber} creada con éxito.`);
     }
   };
 
   const handleQuickCreateInvoiceForCase = (c: SurgicalCase) => {
     const newInv = createInvoiceForCase(c);
-    showToast(`Se generó la factura ${newInv.invoiceNumber} para ${c.patientName}.`);
+    showToast(`Se generó liquidación ${newInv.invoiceNumber} para ${c.patientName}.`);
     setActiveTab('invoices');
   };
 
@@ -122,7 +141,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-600 selection:text-white">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 text-xs font-semibold animate-bounce">
@@ -146,6 +165,26 @@ export default function App() {
 
       {/* Main App Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* TAB 1: Calendario claro de liquidaciones y cobros */}
+        {activeTab === 'calendar' && (
+          <LiquidationCalendar
+            schedules={schedules}
+            cases={cases}
+            invoices={invoices}
+            currency={settings.defaultCurrency}
+            onUpdateSchedule={(monthKey, updates) => {
+              updateSchedule(monthKey, updates);
+              showToast('Mes del calendario actualizado.');
+            }}
+            onSelectCase={c => {
+              setCaseToEdit(c);
+              setIsCaseModalOpen(true);
+            }}
+            onViewDocument={handleOpenDocument}
+          />
+        )}
+
+        {/* TAB 2: Casos & Expedientes Quirúrgicos */}
         {activeTab === 'cases' && (
           <SurgicalCasesList
             cases={cases}
@@ -155,11 +194,11 @@ export default function App() {
             onNewCase={handleOpenNewCase}
             onDeleteCase={id => {
               deleteCase(id);
-              showToast('Cirugía eliminada.');
+              showToast('Expediente eliminado.');
             }}
             onUpdateStatus={(id, status) => {
               updateCaseStatus(id, status);
-              showToast(`Estado de cirugía actualizado a ${status}.`);
+              showToast(`Estado actualizado a ${status}.`);
             }}
             onUpdateClinic={(id, clinic) => {
               updateCase(id, { estimatedSurgeryClinic: clinic });
@@ -171,9 +210,11 @@ export default function App() {
             }}
             onCreateInvoice={handleQuickCreateInvoiceForCase}
             onViewInvoice={handleViewInvoiceById}
+            onViewDocument={handleOpenDocument}
           />
         )}
 
+        {/* TAB 3: Facturación & Liquidaciones */}
         {activeTab === 'invoices' && (
           <InvoicesList
             invoices={invoices}
@@ -184,11 +225,11 @@ export default function App() {
             onNewInvoice={handleOpenNewInvoice}
             onDeleteInvoice={id => {
               deleteInvoice(id);
-              showToast('Factura eliminada.');
+              showToast('Liquidación eliminada.');
             }}
             onUpdateStatus={(id, status) => {
               updateInvoiceStatus(id, status);
-              showToast(`Estado de factura cambiado a ${status}.`);
+              showToast(`Estado cambiado a ${status}.`);
             }}
             onUpdateExpectedDate={(id, expectedCollectionDate) => {
               updateInvoice(id, { expectedCollectionDate });
@@ -196,12 +237,14 @@ export default function App() {
             }}
             onUpdateTotalAmount={(id, totalAmount) => {
               updateInvoice(id, { totalAmount });
-              showToast(`Monto de factura actualizado.`);
+              showToast(`Monto actualizado.`);
             }}
             onViewCase={handleViewCaseById}
+            onViewDocument={handleOpenDocument}
           />
         )}
 
+        {/* TAB 4: Métricas */}
         {activeTab === 'analytics' && (
           <AnalyticsView
             cases={cases}
@@ -220,6 +263,7 @@ export default function App() {
           />
         )}
 
+        {/* TAB 5: Google Sheets */}
         {activeTab === 'sheets' && (
           <GoogleSheetsIntegration
             cases={cases}
@@ -230,7 +274,6 @@ export default function App() {
               showToast('URL de Google Apps Script actualizada.');
             }}
             onRestoreData={(newCases, newInvoices) => {
-              // Replace store state
               newCases.forEach(c => updateCase(c.id, c));
               newInvoices.forEach(i => updateInvoice(i.id, i));
               showToast('Datos restaurados con éxito.');
@@ -238,6 +281,7 @@ export default function App() {
           />
         )}
 
+        {/* TAB 6: Configuración */}
         {activeTab === 'config' && (
           <ConfigPanel
             settings={settings}
@@ -246,7 +290,7 @@ export default function App() {
             onRemoveCatalogItem={removeCatalogItem}
             onResetDemoData={() => {
               resetToDemoData();
-              showToast('Datos restablecidos a la configuración de demostración.');
+              showToast('Datos restablecidos.');
             }}
           />
         )}
@@ -255,7 +299,7 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
         <p>
-          Sistema de Gestión Quirúrgica & Facturación Médica · 100% Editable en tiempo real
+          Dr. Ciavarelli · Gestión de Cirugías y Facturación · 100% Editable en tiempo real
         </p>
       </footer>
 
@@ -267,8 +311,9 @@ export default function App() {
         onSave={handleSaveCase}
         onDelete={id => {
           deleteCase(id);
-          showToast('Cirugía eliminada.');
+          showToast('Expediente eliminado.');
         }}
+        onViewDocument={handleOpenDocument}
         clinics={settings.clinics}
         surgeons={settings.surgeons}
         insurances={settings.insurances}
@@ -284,9 +329,19 @@ export default function App() {
         onSave={handleSaveInvoice}
         onDelete={id => {
           deleteInvoice(id);
-          showToast('Factura eliminada.');
+          showToast('Liquidación eliminada.');
         }}
+        onViewDocument={handleOpenDocument}
         currency={settings.defaultCurrency}
+      />
+
+      {/* Document & Medical Protocol Viewer Modal */}
+      <DocumentViewerModal
+        isOpen={!!viewingDocState}
+        onClose={() => setViewingDocState(null)}
+        document={viewingDocState?.doc || null}
+        associatedCase={viewingDocState?.surgicalCase}
+        associatedInvoice={viewingDocState?.invoice}
       />
 
       {/* AI Assistant Chat Box */}

@@ -15,9 +15,11 @@ import {
   Receipt,
   Eye,
   FileCheck,
-  CreditCard
+  CreditCard,
+  Paperclip,
+  FileText
 } from 'lucide-react';
-import { Invoice, InvoiceStatus, SurgicalCase } from '../types/surgical';
+import { Invoice, InvoiceStatus, SurgicalCase, AttachedDocument } from '../types/surgical';
 import { formatCurrency, CurrencyCode } from '../lib/currency';
 import { getInvoiceUrgency, getDaysDifference, FinancialMetrics } from '../lib/surgicalLogic';
 
@@ -33,6 +35,7 @@ interface InvoicesListProps {
   onUpdateExpectedDate: (id: string, date: string) => void;
   onUpdateTotalAmount: (id: string, amount: number) => void;
   onViewCase: (caseId: string) => void;
+  onViewDocument?: (doc: AttachedDocument, c?: SurgicalCase, inv?: Invoice) => void;
 }
 
 export const InvoicesList: React.FC<InvoicesListProps> = ({
@@ -47,6 +50,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
   onUpdateExpectedDate,
   onUpdateTotalAmount,
   onViewCase,
+  onViewDocument,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -336,6 +340,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
                     <span className="text-cyan-400 font-bold">Fecha Estimada Cobro (Editable)</span>
                   </th>
                   <th className="py-3 px-4">Estado (Editable)</th>
+                  <th className="py-3 px-4">Comprobante ARCA / PDF</th>
                   <th className="py-3 px-4">Referencia / Pago</th>
                   <th className="py-3 px-4 text-right">Acciones</th>
                 </tr>
@@ -459,6 +464,43 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
                         </select>
                       </td>
 
+                      {/* ARCA Comprobante & Liquidación PDF */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {inv.attachedDocuments && inv.attachedDocuments.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {inv.attachedDocuments.map(doc => (
+                              <button
+                                key={doc.id}
+                                type="button"
+                                onClick={() => onViewDocument ? onViewDocument(doc, undefined, inv) : onEditInvoice(inv)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition border ${
+                                  doc.fileType === 'liquidacion'
+                                    ? 'bg-amber-950/70 hover:bg-amber-900 border-amber-600/80 text-amber-300'
+                                    : 'bg-emerald-950/70 hover:bg-emerald-900 border-emerald-600/80 text-emerald-300'
+                                }`}
+                                title={`Ver ${doc.title} en formato oficial`}
+                              >
+                                <Paperclip className="w-3.5 h-3.5" />
+                                <span>
+                                  {doc.fileType === 'liquidacion'
+                                    ? doc.fileName.replace('.pdf', '')
+                                    : 'Factura A'}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => onEditInvoice(inv)}
+                            className="text-[11px] text-slate-500 hover:text-cyan-400 flex items-center gap-1"
+                            title="Adjuntar comprobante"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            <span>+ Adjuntar</span>
+                          </button>
+                        )}
+                      </td>
+
                       {/* Payment Reference */}
                       <td className="py-3 px-4">
                         {inv.paymentReference ? (
@@ -479,7 +521,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           {inv.caseId && (
                             <button
-                              onClick={() => onViewCase(inv.caseId)}
+                              onClick={() => onViewCase(inv.caseId!)}
                               className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-cyan-950/40 rounded-lg transition"
                               title="Ver caso quirúrgico"
                             >

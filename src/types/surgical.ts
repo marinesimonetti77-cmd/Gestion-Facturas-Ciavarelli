@@ -4,6 +4,24 @@ export type SurgeryStatus = 'PROGRAMADA' | 'EN_CURSO' | 'REALIZADA' | 'CANCELADA
 export type MaterialStatus = 'SOLICITADO' | 'EN_CLINICA' | 'UTILIZADO' | 'DEVUELTO';
 export type InvoiceStatus = 'PENDIENTE' | 'EMITIDA' | 'EN_AUDITORIA' | 'OBSERVADA' | 'COBRADA' | 'VENCIDA';
 
+export type DocumentType = 'protocolo' | 'presupuesto' | 'historia_clinica' | 'factura' | 'comprobante' | 'liquidacion' | 'otro';
+
+export interface AttachedDocument {
+  id: string;
+  title: string;
+  fileName: string;
+  fileType: DocumentType;
+  date: string;
+  institution: string;
+  description: string;
+  summaryText: string;
+  technicalDescription?: string;
+  signee: string;
+  registrationNumber: string; // MN / MP
+  fileSize?: string;
+  fileDataUrl?: string; // data URL for preview/download of uploaded files
+}
+
 export interface SurgicalMaterial {
   id: string;
   code: string;
@@ -16,29 +34,39 @@ export interface SurgicalMaterial {
 
 export interface SurgicalCase {
   id: string;
-  patientMedicalRecordNumber: string; // N° Historia Clínica
+  patientMedicalRecordNumber: string; // N° Historia Clínica (HC)
   patientName: string;
-  patientDni: string;
-  patientBirthDate: string; // YYYY-MM-DD
-  patientPhone: string;
+  patientDni?: string;
+  patientBirthDate?: string; // YYYY-MM-DD
+  patientPhone?: string;
   patientEmail?: string;
+  patientAddress?: string;
+  patientLocation?: string;
   insuranceProvider: string;
-  insuranceAffiliateNumber: string;
+  insuranceAffiliateNumber?: string;
+  insurancePlan?: string;
   procedureName: string;
   specialty: string;
-  preoperativeDiagnosis: string;
+  preoperativeDiagnosis?: string;
+  operativeDiagnosis?: string;
   surgeonName: string;
+  surgeonRegistration?: string; // MN / MP
   assistantName?: string;
+  secondAssistantName?: string;
   anesthesiologist?: string;
+  instrumenter?: string;
   estimatedSurgeryClinic: string; // Clínica / Sanatorio
-  operatingRoom: string;
+  operatingRoom?: string;
   surgeryDate: string; // YYYY-MM-DD
-  surgeryTime: string; // HH:mm
-  estimatedDurationHours: number;
+  surgeryTime?: string; // HH:mm
+  estimatedDurationHours?: number;
   status: SurgeryStatus;
-  materials: SurgicalMaterial[];
+  materials?: SurgicalMaterial[];
   notes?: string;
   invoiceId?: string;
+  estimatedSettlementMonth?: string;
+  estimatedSettlementAmount?: number;
+  attachedDocuments?: AttachedDocument[];
   createdAt: string;
   updatedAt: string;
 }
@@ -46,9 +74,9 @@ export interface SurgicalCase {
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  caseId: string;
+  caseId?: string;
   patientName: string;
-  patientMedicalRecordNumber: string;
+  patientMedicalRecordNumber?: string;
   insuranceProvider: string;
   clinic: string;
   surgeonFee: number;
@@ -57,21 +85,44 @@ export interface Invoice {
   totalAmount: number;
   currency: CurrencyCode;
   issueDate: string; // YYYY-MM-DD
-  expectedCollectionDate: string; // YYYY-MM-DD (Fecha estimada de cobro)
+  expectedCollectionDate: string; // YYYY-MM-DD (Día 20 del mes de emisión)
   actualCollectionDate?: string; // YYYY-MM-DD
   status: InvoiceStatus;
   auditNotes?: string;
   paymentReference?: string;
+  collectedAmount?: number;
+  pendingAmount?: number;
+  // AFIP / ARCA Factura A details
+  pointOfSale?: string; // '00003'
+  compNumber?: string; // '00000275'
+  caeNumber?: string; // e.g. 86272310055164
+  caeDueDate?: string; // e.g. 2026-07-13
+  recipientCuit?: string; // 30-54584075-4
+  recipientName?: string; // CORPORACION MEDICA DE GRAL SAN MARTIN S A
+  recipientAddress?: string;
+  periodFrom?: string; // YYYY-MM-DD
+  periodTo?: string; // YYYY-MM-DD
+  conceptDescription?: string;
+  netExemptAmount?: number;
+  netTaxableAmount?: number;
+  ivaAmount?: number;
+  ivaRate?: number; // e.g. 10.5
+  attachedDocuments?: AttachedDocument[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ClinicOption {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  phone: string;
+export interface MonthlyLiquidationSchedule {
+  monthKey: string;
+  monthLabel: string;
+  expectedPaymentDay20: number;
+  pendingLiquidations: number;
+  withdrawnCollected: number;
+  registeredCollections: number;
+  pendingCollection: number;
+  estimatedLiquidationsCount: number;
+  estimatedLiquidationsAmount: number;
+  notes?: string;
 }
 
 export interface AppSettings {

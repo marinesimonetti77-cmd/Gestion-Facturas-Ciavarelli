@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Save,
@@ -12,9 +12,15 @@ import {
   Stethoscope,
   Layers,
   AlertCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  FileText,
+  Paperclip,
+  Upload,
+  Eye,
+  Download,
+  CheckCircle2
 } from 'lucide-react';
-import { SurgicalCase, SurgicalMaterial, SurgeryStatus, MaterialStatus } from '../types/surgical';
+import { SurgicalCase, SurgicalMaterial, SurgeryStatus, MaterialStatus, AttachedDocument, DocumentType } from '../types/surgical';
 import { calculateAge, validateSurgicalCase } from '../lib/surgicalLogic';
 
 interface CaseEditModalProps {
@@ -23,6 +29,7 @@ interface CaseEditModalProps {
   caseToEdit?: SurgicalCase | null;
   onSave: (caseData: any) => void;
   onDelete?: (id: string) => void;
+  onViewDocument?: (doc: AttachedDocument, c?: SurgicalCase) => void;
   clinics: string[];
   surgeons: string[];
   insurances: string[];
@@ -35,6 +42,7 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
   caseToEdit,
   onSave,
   onDelete,
+  onViewDocument,
   clinics,
   surgeons,
   insurances,
@@ -47,32 +55,44 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
     patientBirthDate: '1985-06-15',
     patientPhone: '',
     patientEmail: '',
-    insuranceProvider: insurances[0] || 'OSDE 310 / 410',
+    insuranceProvider: insurances[0] || 'OSDE BINARIO (Plan 210)',
     insuranceAffiliateNumber: '',
     procedureName: '',
-    specialty: specialties[0] || 'Traumatología y Ortopedia',
+    specialty: specialties[0] || 'Cirugía General',
     preoperativeDiagnosis: '',
-    surgeonName: surgeons[0] || 'Dr. Martín Rossi (Traumatología)',
+    surgeonName: surgeons[0] || 'Dr. Miguel Angel Ciavarelli',
     assistantName: '',
     anesthesiologist: '',
-    estimatedSurgeryClinic: clinics[0] || 'Sanatorio Los Arcos',
-    operatingRoom: 'Quirófano 1',
+    estimatedSurgeryClinic: clinics[0] || 'Corporación Médica de Gral San Martín SA',
+    operatingRoom: 'Quirófano Central',
     surgeryDate: new Date().toISOString().split('T')[0],
     surgeryTime: '08:30',
     estimatedDurationHours: 2.0,
     status: 'PROGRAMADA',
     notes: '',
     materials: [],
+    attachedDocuments: [],
   });
 
   const [materials, setMaterials] = useState<SurgicalMaterial[]>([]);
+  const [attachedDocuments, setAttachedDocuments] = useState<AttachedDocument[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<'general' | 'materials' | 'notes'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'materials' | 'notes' | 'documents'>('general');
+
+  // New attachment form state
+  const [newDocTitle, setNewDocTitle] = useState('');
+  const [newDocType, setNewDocType] = useState<DocumentType>('protocolo');
+  const [newDocInstitution, setNewDocInstitution] = useState('');
+  const [newDocDescription, setNewDocDescription] = useState('');
+  const [newDocFile, setNewDocFile] = useState<{ name: string; size: string; dataUrl?: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (caseToEdit) {
       setFormData(caseToEdit);
       setMaterials(caseToEdit.materials || []);
+      setAttachedDocuments(caseToEdit.attachedDocuments || []);
+      setNewDocInstitution(caseToEdit.estimatedSurgeryClinic || clinics[0] || 'Corporación Médica de Gral San Martín SA');
     } else {
       // Default new case
       const today = new Date().toISOString().split('T')[0];
@@ -83,27 +103,33 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
         patientBirthDate: '1985-06-15',
         patientPhone: '',
         patientEmail: '',
-        insuranceProvider: insurances[0] || 'OSDE 310 / 410',
+        insuranceProvider: insurances[0] || 'OSDE BINARIO (Plan 210)',
         insuranceAffiliateNumber: '',
         procedureName: '',
-        specialty: specialties[0] || 'Traumatología y Ortopedia',
+        specialty: specialties[0] || 'Cirugía General',
         preoperativeDiagnosis: '',
-        surgeonName: surgeons[0] || '',
+        surgeonName: surgeons[0] || 'Dr. Miguel Angel Ciavarelli',
         assistantName: '',
         anesthesiologist: '',
-        estimatedSurgeryClinic: clinics[0] || 'Sanatorio Los Arcos',
-        operatingRoom: 'Quirófano 1',
+        estimatedSurgeryClinic: clinics[0] || 'Corporación Médica de Gral San Martín SA',
+        operatingRoom: 'Quirófano Central',
         surgeryDate: today,
         surgeryTime: '08:30',
         estimatedDurationHours: 2.0,
         status: 'PROGRAMADA',
         notes: '',
         materials: [],
+        attachedDocuments: [],
       });
       setMaterials([]);
+      setAttachedDocuments([]);
+      setNewDocInstitution(clinics[0] || 'Corporación Médica de Gral San Martín SA');
     }
     setErrors({});
     setActiveTab('general');
+    setNewDocTitle('');
+    setNewDocDescription('');
+    setNewDocFile(null);
   }, [caseToEdit, isOpen, clinics, surgeons, insurances, specialties]);
 
   if (!isOpen) return null;
@@ -142,11 +168,61 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
     setMaterials(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const sizeKb = (file.size / 1024).toFixed(1) + ' KB';
+    const reader = new FileReader();
+    reader.onload = () => {
+      setNewDocFile({
+        name: file.name,
+        size: sizeKb,
+        dataUrl: reader.result as string,
+      });
+      if (!newDocTitle) {
+        setNewDocTitle(file.name.replace(/\.[^/.]+$/, ''));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddDocument = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDocTitle.trim()) return;
+
+    const newDoc: AttachedDocument = {
+      id: `doc-${Date.now()}`,
+      title: newDocTitle.trim(),
+      fileName: newDocFile?.name || `${newDocTitle.trim().replace(/\s+/g, '_')}.pdf`,
+      fileType: newDocType,
+      date: new Date().toISOString().split('T')[0],
+      institution: newDocInstitution || formData.estimatedSurgeryClinic || 'Corporación Médica de Gral San Martín SA',
+      description: newDocDescription || `Documento adjunto al expediente de ${formData.patientName}`,
+      summaryText: newDocDescription || 'Documento adjuntado por el profesional médico.',
+      signee: formData.surgeonName || 'Dr. Miguel Angel Ciavarelli',
+      registrationNumber: formData.surgeonRegistration || 'MN 70212 | MP 440703',
+      fileSize: newDocFile?.size || 'PDF',
+      fileDataUrl: newDocFile?.dataUrl,
+    };
+
+    setAttachedDocuments(prev => [newDoc, ...prev]);
+    setNewDocTitle('');
+    setNewDocDescription('');
+    setNewDocFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveDocument = (id: string) => {
+    setAttachedDocuments(prev => prev.filter(d => d.id !== id));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
       ...formData,
       materials,
+      attachedDocuments,
     };
 
     const validation = validateSurgicalCase(payload);
@@ -229,6 +305,19 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Observaciones & Quirófano</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('documents')}
+            className={`px-3 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 flex items-center gap-1.5 ${
+              activeTab === 'documents'
+                ? 'border-cyan-500 text-cyan-400 bg-slate-800/40'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Paperclip className="w-3.5 h-3.5" />
+            <span>Adjuntos & Protocolos ({attachedDocuments.length})</span>
           </button>
         </div>
 
@@ -700,6 +789,195 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
                   Cualquier modificación guardada en este caso se sincroniza inmediatamente en memoria local,
                   y quedará lista para sincronizarse con Google Sheets / Apps Script o exportarse a CSV.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'documents' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Paperclip className="w-4 h-4 text-cyan-400" />
+                    <span>Documentos, Protocolos & Archivos Adjuntos ({attachedDocuments.length})</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Protocolos quirúrgicos institucionales, solicitudes de quirófano, presupuestos y comprobantes
+                  </p>
+                </div>
+              </div>
+
+              {/* Existing documents list */}
+              {attachedDocuments.length === 0 ? (
+                <div className="border border-dashed border-slate-700 rounded-xl p-8 text-center bg-slate-950/40">
+                  <FileText className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                  <p className="text-sm text-slate-300 font-medium">No hay documentos adjuntos en este expediente</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Cargue el protocolo quirúrgico, solicitud médica o presupuesto utilizando el formulario inferior.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {attachedDocuments.map(doc => (
+                    <div
+                      key={doc.id}
+                      className="bg-slate-800/60 border border-slate-750 hover:border-slate-650 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-white text-sm">{doc.title}</span>
+                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-700">
+                              {doc.fileType}
+                            </span>
+                            {doc.fileSize && (
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                ({doc.fileSize})
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300">
+                            {doc.institution} · <span className="text-slate-400">{doc.date}</span>
+                          </p>
+                          <p className="text-[11px] text-slate-400 line-clamp-1">
+                            {doc.description || doc.summaryText}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-700/50">
+                        {onViewDocument && (
+                          <button
+                            type="button"
+                            onClick={() => onViewDocument(doc, formData as SurgicalCase)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow transition"
+                            title="Ver e imprimir documento médico"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Ver / Imprimir</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDocument(doc.id)}
+                          className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-950/50 transition"
+                          title="Quitar archivo adjunto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Form to attach new document */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400 uppercase tracking-wider">
+                  <Upload className="w-4 h-4" />
+                  <span>Adjuntar Nuevo Documento / Protocolo</span>
+                </div>
+
+                {/* File picker button / dropzone */}
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt"
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-700 hover:border-cyan-500/70 rounded-xl p-4 text-center cursor-pointer transition bg-slate-900/60 hover:bg-slate-900"
+                  >
+                    {newDocFile ? (
+                      <div className="flex items-center justify-center gap-2 text-emerald-400 text-xs font-semibold">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Archivo cargado: {newDocFile.name} ({newDocFile.size})</span>
+                        <span className="text-slate-400 underline ml-2">Cambiar</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Upload className="w-5 h-5 text-slate-400 mx-auto" />
+                        <p className="text-xs text-slate-300 font-medium">
+                          Haga clic aquí para seleccionar un archivo (PDF, Imagen, Word o Texto)
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          El archivo se almacenará directamente en el expediente
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] text-slate-400 mb-1">Título del Documento *</label>
+                    <input
+                      type="text"
+                      value={newDocTitle}
+                      onChange={e => setNewDocTitle(e.target.value)}
+                      placeholder="Ej. Protocolo Quirúrgico N° 512569"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Tipo de Documento</label>
+                    <select
+                      value={newDocType}
+                      onChange={e => setNewDocType(e.target.value as DocumentType)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                    >
+                      <option value="protocolo">Protocolo Quirúrgico</option>
+                      <option value="presupuesto">Solicitud / Presupuesto</option>
+                      <option value="historia_clinica">Historia Clínica</option>
+                      <option value="factura">Factura / Liquidación</option>
+                      <option value="comprobante">Comprobante de Pago</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Institución Sanatorial</label>
+                    <input
+                      type="text"
+                      value={newDocInstitution}
+                      onChange={e => setNewDocInstitution(e.target.value)}
+                      placeholder="Ej. Corporación Médica de Gral San Martín SA"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Descripción / Resumen de Hallazgos</label>
+                    <input
+                      type="text"
+                      value={newDocDescription}
+                      onChange={e => setNewDocDescription(e.target.value)}
+                      placeholder="Detalle operatorio o resumen..."
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleAddDocument}
+                    disabled={!newDocTitle.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold shadow transition"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Agregar Documento al Expediente</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

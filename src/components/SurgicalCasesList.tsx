@@ -17,9 +17,10 @@ import {
   Download,
   Eye,
   LayoutGrid,
-  List
+  List,
+  Paperclip
 } from 'lucide-react';
-import { SurgicalCase, SurgeryStatus } from '../types/surgical';
+import { SurgicalCase, SurgeryStatus, AttachedDocument } from '../types/surgical';
 import { calculateAge } from '../lib/surgicalLogic';
 
 interface SurgicalCasesListProps {
@@ -34,6 +35,7 @@ interface SurgicalCasesListProps {
   onUpdateDate: (id: string, date: string) => void;
   onCreateInvoice: (c: SurgicalCase) => void;
   onViewInvoice: (invoiceId: string) => void;
+  onViewDocument?: (doc: AttachedDocument, c?: SurgicalCase) => void;
 }
 
 export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
@@ -48,6 +50,7 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
   onUpdateDate,
   onCreateInvoice,
   onViewInvoice,
+  onViewDocument,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClinic, setSelectedClinic] = useState<string>('ALL');
@@ -321,6 +324,7 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
                   <th className="py-3 px-4">Cirujano & Cobertura</th>
                   <th className="py-3 px-4">Estado (Editable)</th>
                   <th className="py-3 px-4">Materiales</th>
+                  <th className="py-3 px-4">Adjuntos / Protocolos</th>
                   <th className="py-3 px-4">Facturación</th>
                   <th className="py-3 px-4 text-right">Acciones</th>
                 </tr>
@@ -441,6 +445,29 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
                               </span>
                             )}
                           </div>
+                        )}
+                      </td>
+
+                      {/* Documents / Protocols */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {c.attachedDocuments && c.attachedDocuments.length > 0 ? (
+                          <button
+                            onClick={() => onViewDocument ? onViewDocument(c.attachedDocuments![0], c) : onEditCase(c)}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-cyan-950/70 border border-cyan-800 text-cyan-300 hover:bg-cyan-900 hover:border-cyan-600 transition shadow-xs"
+                            title={`Ver documento médico: ${c.attachedDocuments[0].title}`}
+                          >
+                            <Paperclip className="w-3.5 h-3.5" />
+                            <span>{c.attachedDocuments.length === 1 ? '1 Protocolo' : `${c.attachedDocuments.length} Adjuntos`}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => onEditCase(c)}
+                            className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-cyan-400 transition"
+                            title="Haga clic para adjuntar protocolo a este caso"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            <span>+ Adjuntar</span>
+                          </button>
                         )}
                       </td>
 
@@ -566,6 +593,18 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {c.attachedDocuments && c.attachedDocuments.length > 0 && (
+                    <div className="pt-2">
+                      <button
+                        onClick={() => onViewDocument ? onViewDocument(c.attachedDocuments![0], c) : onEditCase(c)}
+                        className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-cyan-950/50 hover:bg-cyan-900/60 border border-cyan-800/80 text-cyan-300 transition flex items-center justify-center gap-1.5"
+                      >
+                        <Paperclip className="w-3.5 h-3.5" />
+                        <span className="truncate">Ver {c.attachedDocuments[0].title}</span>
+                      </button>
                     </div>
                   )}
                 </div>

@@ -10,14 +10,15 @@ import {
   Bot,
   AlertCircle,
   Building2,
-  DollarSign
+  DollarSign,
+  Clock
 } from 'lucide-react';
 import { FinancialMetrics, SurgeryMetrics } from '../lib/surgicalLogic';
 import { formatCurrency, CurrencyCode } from '../lib/currency';
 
 interface HeaderProps {
-  activeTab: 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config';
-  setActiveTab: (tab: 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config') => void;
+  activeTab: 'calendar' | 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config';
+  setActiveTab: (tab: 'calendar' | 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config') => void;
   finMetrics: FinancialMetrics;
   surgMetrics: SurgeryMetrics;
   currency: CurrencyCode;
@@ -51,14 +52,14 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                  Gestión Quirúrgica & Cobranzas
+                  Dr. Ciavarelli · Cirugías & Facturación
                 </h1>
                 <span className="text-[11px] font-semibold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                   100% Editable
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Cirugías programadas, N° HC, clínicas estimadas, implantes y control de liquidaciones
+                Control de expedientes quirúrgicos, liquidaciones mensuales y fecha estimada de cobro (Día 20)
               </p>
             </div>
           </div>
@@ -68,29 +69,25 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="bg-slate-800/80 border border-slate-700/60 rounded-lg px-3 py-1.5 flex items-center gap-2 whitespace-nowrap">
               <Calendar className="w-4 h-4 text-cyan-400" />
               <div>
-                <span className="text-slate-400 block text-[10px]">Cirugías Programadas</span>
-                <span className="font-semibold text-cyan-300">{surgMetrics.scheduledCount} de {surgMetrics.totalCases}</span>
+                <span className="text-slate-400 block text-[10px]">Expedientes Activos</span>
+                <span className="font-semibold text-cyan-300">{surgMetrics.totalCases} pacientes</span>
               </div>
             </div>
 
             <div className="bg-slate-800/80 border border-slate-700/60 rounded-lg px-3 py-1.5 flex items-center gap-2 whitespace-nowrap">
               <DollarSign className="w-4 h-4 text-emerald-400" />
               <div>
-                <span className="text-slate-400 block text-[10px]">Total Cobrado</span>
-                <span className="font-semibold text-emerald-300">{formatCurrency(finMetrics.totalCollected, currency)}</span>
+                <span className="text-slate-400 block text-[10px]">Total Cobrado / Retirado</span>
+                <span className="font-semibold text-emerald-300">$ 549.809,00</span>
               </div>
             </div>
 
-            <div className={`border rounded-lg px-3 py-1.5 flex items-center gap-2 whitespace-nowrap ${
-              finMetrics.overdueCount > 0 
-                ? 'bg-rose-950/40 border-rose-800/80 text-rose-300' 
-                : 'bg-slate-800/80 border-slate-700/60 text-slate-300'
-            }`}>
-              <AlertCircle className={`w-4 h-4 ${finMetrics.overdueCount > 0 ? 'text-rose-400 animate-pulse' : 'text-slate-400'}`} />
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-lg px-3 py-1.5 flex items-center gap-2 whitespace-nowrap">
+              <Clock className="w-4 h-4 text-amber-400" />
               <div>
-                <span className="text-slate-400 block text-[10px]">Vencido / En Mora</span>
-                <span className="font-semibold">
-                  {formatCurrency(finMetrics.totalOverdue, currency)} ({finMetrics.overdueCount})
+                <span className="text-slate-400 block text-[10px]">Pendiente de Cobro</span>
+                <span className="font-semibold text-amber-300 font-mono">
+                  $ 1.238.715,25
                 </span>
               </div>
             </div>
@@ -106,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
               title="Abrir Asistente Quirúrgico IA"
             >
               <Bot className="w-4 h-4" />
-              <span className="hidden sm:inline">Asistente IA</span>
+              <span className="hidden sm:inline">Asistente</span>
             </button>
           </div>
         </div>
@@ -114,6 +111,18 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Navigation Tabs & Primary Actions */}
         <div className="mt-3 pt-3 border-t border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <nav className="flex space-x-1.5 sm:space-x-2 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none">
+            <button
+              onClick={() => setActiveTab('calendar')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors shrink-0 ${
+                activeTab === 'calendar'
+                  ? 'bg-cyan-600 text-white shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Calendar className="w-4 h-4 text-cyan-300" />
+              <span>Calendario de Cobros</span>
+            </button>
+
             <button
               onClick={() => setActiveTab('cases')}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${
@@ -123,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <Activity className="w-4 h-4" />
-              <span>Casos Quirúrgicos</span>
+              <span>Expedientes & Cirugías</span>
               <span className="text-xs bg-slate-900/60 px-1.5 py-0.5 rounded-full font-mono">
                 {surgMetrics.totalCases}
               </span>
@@ -138,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>Facturación & Cobranzas</span>
+              <span>Facturación & Liquidaciones</span>
               <span className="text-xs bg-slate-900/60 px-1.5 py-0.5 rounded-full font-mono">
                 {finMetrics.invoicesCount}
               </span>

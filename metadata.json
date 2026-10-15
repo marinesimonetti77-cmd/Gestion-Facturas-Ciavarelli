@@ -1,6 +1,8 @@
 {
-  "name": "Gestión Quirúrgica & Facturación",
-  "description": "Sistema integral de gestión de casos quirúrgicos, seguimiento de pacientes, prótesis y facturación médica editable en tiempo real.",
+  "name": "Dr. Ciavarelli · Gestión de Cirugías y Facturación",
+  "description": "Sistema privado de gestión de expedientes quirúrgicos, pacientes, documentación y facturación del Dr. Ciavarelli.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
