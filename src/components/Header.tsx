@@ -1,0 +1,206 @@
+import React from 'react';
+import {
+  Activity,
+  Calendar,
+  FileText,
+  PieChart,
+  Table,
+  Settings,
+  Plus,
+  Bot,
+  AlertCircle,
+  Building2,
+  DollarSign
+} from 'lucide-react';
+import { FinancialMetrics, SurgeryMetrics } from '../lib/surgicalLogic';
+import { formatCurrency, CurrencyCode } from '../lib/currency';
+
+interface HeaderProps {
+  activeTab: 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config';
+  setActiveTab: (tab: 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config') => void;
+  finMetrics: FinancialMetrics;
+  surgMetrics: SurgeryMetrics;
+  currency: CurrencyCode;
+  onOpenNewCase: () => void;
+  onOpenNewInvoice: () => void;
+  onToggleChat: () => void;
+  isChatOpen: boolean;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  activeTab,
+  setActiveTab,
+  finMetrics,
+  surgMetrics,
+  currency,
+  onOpenNewCase,
+  onOpenNewInvoice,
+  onToggleChat,
+  isChatOpen,
+}) => {
+  return (
+    <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-30 shadow-md">
+      {/* Top Banner with Branding and Quick Stats */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Logo & Title */}
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 ring-1 ring-white/20">
+              <Activity className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                  Gestión Quirúrgica & Cobranzas
+                </h1>
+                <span className="text-[11px] font-semibold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                  100% Editable
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Cirugías programadas, N° HC, clínicas estimadas, implantes y control de liquidaciones
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto pb-1 md:pb-0 text-xs">
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-lg px-3 py-1.5 flex items-center gap-2 whitespace-nowrap">
+              <Calendar className="w-4 h-4 text-cyan-400" />
+              <div>
+                <span className="text-slate-400 block text-[10px]">Cirugías Programadas</span>
+                <span className="font-semibold text-cyan-300">{surgMetrics.scheduledCount} de {surgMetrics.totalCases}</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-lg px-3 py-1.5 flex items-center gap-2 whitespace-nowrap">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <div>
+                <span className="text-slate-400 block text-[10px]">Total Cobrado</span>
+                <span className="font-semibold text-emerald-300">{formatCurrency(finMetrics.totalCollected, currency)}</span>
+              </div>
+            </div>
+
+            <div className={`border rounded-lg px-3 py-1.5 flex items-center gap-2 whitespace-nowrap ${
+              finMetrics.overdueCount > 0 
+                ? 'bg-rose-950/40 border-rose-800/80 text-rose-300' 
+                : 'bg-slate-800/80 border-slate-700/60 text-slate-300'
+            }`}>
+              <AlertCircle className={`w-4 h-4 ${finMetrics.overdueCount > 0 ? 'text-rose-400 animate-pulse' : 'text-slate-400'}`} />
+              <div>
+                <span className="text-slate-400 block text-[10px]">Vencido / En Mora</span>
+                <span className="font-semibold">
+                  {formatCurrency(finMetrics.totalOverdue, currency)} ({finMetrics.overdueCount})
+                </span>
+              </div>
+            </div>
+
+            {/* AI Assistant toggle button */}
+            <button
+              onClick={onToggleChat}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-medium transition-all ${
+                isChatOpen
+                  ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/20'
+                  : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border-cyan-500/30'
+              }`}
+              title="Abrir Asistente Quirúrgico IA"
+            >
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">Asistente IA</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation Tabs & Primary Actions */}
+        <div className="mt-3 pt-3 border-t border-slate-800 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <nav className="flex space-x-1.5 sm:space-x-2 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none">
+            <button
+              onClick={() => setActiveTab('cases')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${
+                activeTab === 'cases'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              <span>Casos Quirúrgicos</span>
+              <span className="text-xs bg-slate-900/60 px-1.5 py-0.5 rounded-full font-mono">
+                {surgMetrics.totalCases}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('invoices')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${
+                activeTab === 'invoices'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Facturación & Cobranzas</span>
+              <span className="text-xs bg-slate-900/60 px-1.5 py-0.5 rounded-full font-mono">
+                {finMetrics.invoicesCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${
+                activeTab === 'analytics'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <PieChart className="w-4 h-4" />
+              <span>Métricas</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('sheets')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${
+                activeTab === 'sheets'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Table className="w-4 h-4 text-emerald-400" />
+              <span>Google Sheets & Backend</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('config')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${
+                activeTab === 'config'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Configuración</span>
+            </button>
+          </nav>
+
+          {/* Quick Create Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onOpenNewCase}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nueva Cirugía</span>
+            </button>
+
+            <button
+              onClick={onOpenNewInvoice}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nueva Factura</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};

@@ -1,0 +1,6 @@
+{
+  "name": "Gestión Quirúrgica & Facturación",
+  "description": "Sistema integral de gestión de casos quirúrgicos, seguimiento de pacientes, prótesis y facturación médica editable en tiempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
