@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { SurgicalCase, Invoice, AppSettings, SurgeryStatus, InvoiceStatus, MonthlyLiquidationSchedule } from '../types/surgical';
 import { INITIAL_CASES, INITIAL_INVOICES, INITIAL_SETTINGS, INITIAL_MONTHLY_SCHEDULES } from './mockData';
 
-const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v5';
-const STORAGE_KEY_INVOICES = 'ciavarelli_hub_invoices_v5';
-const STORAGE_KEY_SETTINGS = 'ciavarelli_hub_settings_v5';
-const STORAGE_KEY_SCHEDULES = 'ciavarelli_hub_schedules_v5';
+const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v6';
+const STORAGE_KEY_INVOICES = 'ciavarelli_hub_invoices_v6';
+const STORAGE_KEY_SETTINGS = 'ciavarelli_hub_settings_v6';
+const STORAGE_KEY_SCHEDULES = 'ciavarelli_hub_schedules_v6';
 
 export function useSurgicalStore() {
   const [cases, setCases] = useState<SurgicalCase[]>(() => {
@@ -28,7 +28,8 @@ export function useSurgicalStore() {
       const parsed = JSON.parse(saved);
       const hasRealAfipInvoices = parsed.some((i: any) => i.invoiceNumber?.includes('00003-00000275') || i.pointOfSale === '00003');
       const hasLiquidaciones = parsed.some((i: any) => i.attachedDocuments?.some((d: any) => d.fileType === 'liquidacion'));
-      return hasRealAfipInvoices && hasLiquidaciones ? parsed : INITIAL_INVOICES;
+      const isSeptemberPaid = parsed.some((i: any) => (i.compNumber === '00000289' || i.invoiceNumber?.includes('289')) && i.status === 'COBRADA');
+      return hasRealAfipInvoices && hasLiquidaciones && isSeptemberPaid ? parsed : INITIAL_INVOICES;
     } catch {
       return INITIAL_INVOICES;
     }
@@ -46,7 +47,10 @@ export function useSurgicalStore() {
   const [schedules, setSchedules] = useState<MonthlyLiquidationSchedule[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SCHEDULES);
-      return saved ? JSON.parse(saved) : INITIAL_MONTHLY_SCHEDULES;
+      if (!saved) return INITIAL_MONTHLY_SCHEDULES;
+      const parsed = JSON.parse(saved);
+      const isSeptPaid = parsed.some((s: any) => s.monthKey === '2026-09' && s.pendingCollection === 0);
+      return isSeptPaid ? parsed : INITIAL_MONTHLY_SCHEDULES;
     } catch {
       return INITIAL_MONTHLY_SCHEDULES;
     }
