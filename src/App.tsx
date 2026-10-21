@@ -388,6 +388,22 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-2 text-slate-400">
+          <button onClick={() => setActiveTab('calendar')} className="hover:text-cyan-400 transition cursor-pointer">Calendario de Cobros</button>
+          <span>•</span>
+          <button onClick={() => setActiveTab('cases')} className="hover:text-blue-400 transition cursor-pointer">Expedientes & Cirugías</button>
+          <span>•</span>
+          <button onClick={() => setActiveTab('budgets')} className="hover:text-purple-400 transition cursor-pointer">Presupuestos Qx</button>
+          <span>•</span>
+          <button onClick={() => setActiveTab('invoices')} className="hover:text-emerald-400 transition cursor-pointer">Facturación</button>
+          <span>•</span>
+          <button
+            onClick={() => setActiveTab('config')}
+            className="text-cyan-300 hover:text-white font-semibold flex items-center gap-1 transition cursor-pointer bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800 hover:border-cyan-500/50"
+          >
+            ⚙️ Configuración (Usuarios, Contraseñas y Catálogos)
+          </button>
+        </div>
         <p>
           Dr. Ciavarelli · Gestión de Cirugías y Facturación · 100% Editable en tiempo real
         </p>
