@@ -7,7 +7,8 @@ import {
   calculateFinancialMetrics,
   calculateSurgeryMetrics,
   validateSurgicalCase,
-  validateInvoice
+  validateInvoice,
+  getCaseLiquidationStatus,
 } from './surgicalLogic.ts';
 import type { SurgicalCase, Invoice } from '../types/surgical.ts';
 
@@ -99,3 +100,35 @@ test('validateSurgicalCase catches missing required fields', () => {
   });
   assert.equal(valid.isValid, true);
 });
+
+test('getCaseLiquidationStatus identifies 3-month overdue cases awaiting liquidation', () => {
+  const overThreeMonthsCase: any = {
+    id: 'case-test-1',
+    status: 'REALIZADA',
+    surgeryDate: '2026-07-03',
+    invoiceId: undefined,
+  };
+  const status = getCaseLiquidationStatus(overThreeMonthsCase);
+  assert.equal(status.stage, 'DUE_FOR_BILLING');
+  assert.ok(status.daysSinceSurgery >= 90);
+  assert.equal(status.isUrgent, true);
+
+  const billedCase: any = {
+    id: 'case-test-2',
+    status: 'REALIZADA',
+    surgeryDate: '2026-07-03',
+    invoiceId: 'inv-123',
+  };
+  const billedStatus = getCaseLiquidationStatus(billedCase);
+  assert.equal(billedStatus.stage, 'BILLED');
+
+  const recentCase: any = {
+    id: 'case-test-3',
+    status: 'REALIZADA',
+    surgeryDate: '2026-09-20',
+    invoiceId: undefined,
+  };
+  const recentStatus = getCaseLiquidationStatus(recentCase);
+  assert.equal(recentStatus.stage, 'IN_AUDIT');
+});
+

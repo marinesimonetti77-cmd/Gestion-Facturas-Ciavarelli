@@ -12,6 +12,9 @@ import { CaseEditModal } from './components/CaseEditModal';
 import { InvoiceEditModal } from './components/InvoiceEditModal';
 import { AIChatBox } from './components/AIChatBox';
 import { DocumentViewerModal } from './components/DocumentViewerModal';
+import { SurgicalBudgetsView } from './components/SurgicalBudgetsView';
+import { LoginScreen } from './components/LoginScreen';
+import { useAuth } from './lib/useAuth';
 import { SurgicalCase, Invoice, AttachedDocument } from './types/surgical';
 
 export default function App() {
@@ -34,10 +37,26 @@ export default function App() {
     removeCatalogItem,
     resetToDemoData,
     createInvoiceForCase,
+    approveBudget,
+    rejectBudget,
+    syncOfficialInvoices,
   } = useSurgicalStore();
 
+  const {
+    users,
+    currentUser,
+    isAuthenticated,
+    requireAuth,
+    setRequireAuth,
+    login,
+    logout,
+    changePassword,
+    addUser,
+    deleteUser,
+  } = useAuth();
+
   // Active navigation tab (default to the Calendario de Cobros requested by the user!)
-  const [activeTab, setActiveTab] = useState<'calendar' | 'cases' | 'invoices' | 'analytics' | 'sheets' | 'config'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'cases' | 'budgets' | 'invoices' | 'analytics' | 'sheets' | 'config'>('calendar');
 
   // Modal states
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
@@ -140,6 +159,22 @@ export default function App() {
     }
   };
 
+  // Security Gate: Check credentials if auth is required and no active session
+  if (requireAuth && !isAuthenticated) {
+    return (
+      <LoginScreen
+        onLogin={(usernameAttempt, passAttempt) => {
+          const res = login(usernameAttempt, passAttempt);
+          if (res.success) {
+            showToast('Sesión iniciada correctamente.');
+          }
+          return res;
+        }}
+        onBypass={() => setRequireAuth(false)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-600 selection:text-white">
       {/* Toast Notification */}
@@ -161,6 +196,15 @@ export default function App() {
         onOpenNewInvoice={handleOpenNewInvoice}
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
+        currentUser={currentUser}
+        onLogout={() => {
+          logout();
+          showToast('Sesión cerrada correctamente.');
+        }}
+        onSyncInvoices={() => {
+          syncOfficialInvoices();
+          showToast('Datos oficiales sincronizados: 3 facturas de Octubre ($ 762.210) y Presupuestos actualizados');
+        }}
       />
 
       {/* Main App Body */}
@@ -181,6 +225,10 @@ export default function App() {
               setIsCaseModalOpen(true);
             }}
             onViewDocument={handleOpenDocument}
+            onSyncInvoices={() => {
+              syncOfficialInvoices();
+              showToast('Facturas oficiales y liquidaciones del 20/10 sincronizadas con éxito.');
+            }}
           />
         )}
 
@@ -214,6 +262,22 @@ export default function App() {
           />
         )}
 
+        {/* TAB: Presupuestos Quirúrgicos a la espera de Aprobación */}
+        {activeTab === 'budgets' && (
+          <SurgicalBudgetsView
+            cases={cases}
+            currency={settings.defaultCurrency}
+            onEditCase={handleEditCase}
+            onNewBudget={handleOpenNewCase}
+            onApproveBudget={(caseId, approvalData) => {
+              approveBudget(caseId, approvalData);
+              showToast(`Presupuesto aprobado. Fecha de cirugía asignada para el ${approvalData.surgeryDate}.`);
+            }}
+            onViewDocument={handleOpenDocument}
+            onNavigateToCases={() => setActiveTab('cases')}
+          />
+        )}
+
         {/* TAB 3: Facturación & Liquidaciones */}
         {activeTab === 'invoices' && (
           <InvoicesList
@@ -241,6 +305,10 @@ export default function App() {
             }}
             onViewCase={handleViewCaseById}
             onViewDocument={handleOpenDocument}
+            onSyncInvoices={() => {
+              syncOfficialInvoices();
+              showToast('Facturas oficiales y liquidaciones del 20/10 sincronizadas con éxito.');
+            }}
           />
         )}
 
@@ -291,6 +359,28 @@ export default function App() {
             onResetDemoData={() => {
               resetToDemoData();
               showToast('Datos restablecidos.');
+            }}
+            users={users}
+            currentUser={currentUser}
+            onUpdatePassword={(userId, newPass) => {
+              const res = changePassword(userId, newPass);
+              if (res.success) showToast(res.message || 'Contraseña actualizada');
+              return res;
+            }}
+            onAddUser={data => {
+              const res = addUser(data);
+              if (res.success) showToast(res.message || 'Usuario agregado');
+              return res;
+            }}
+            onDeleteUser={userId => {
+              const res = deleteUser(userId);
+              if (res.success) showToast(res.message || 'Usuario eliminado');
+              return res;
+            }}
+            requireAuth={requireAuth}
+            onToggleRequireAuth={val => {
+              setRequireAuth(val);
+              showToast(val ? 'Contraseña requerida al iniciar' : 'Ingreso directo habilitado');
             }}
           />
         )}

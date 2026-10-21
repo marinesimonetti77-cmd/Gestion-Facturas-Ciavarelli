@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   X,
   Printer,
@@ -32,6 +32,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   associatedInvoice,
 }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<'paper' | 'raw_pdf'>('paper');
 
   if (!isOpen || !doc) return null;
 
@@ -41,9 +42,20 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   const isLiquidation = doc.fileType === 'liquidacion' || doc.fileName.toLowerCase().includes('liquidacion');
   const isInvoice = !isLiquidation && (doc.fileType === 'factura' || doc.fileType === 'comprobante' || (!associatedCase && !!associatedInvoice));
+  const isBudget = !isLiquidation && !isInvoice && (doc.fileType === 'presupuesto' || doc.fileName.toLowerCase().includes('presupuesto'));
   const inv = associatedInvoice;
 
   const handleDownload = () => {
+    if (doc.fileUrl) {
+      const a = window.document.createElement('a');
+      a.href = doc.fileUrl;
+      a.download = doc.fileName || `${doc.title}.pdf`;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      return;
+    }
+
     if (doc.fileDataUrl) {
       const a = window.document.createElement('a');
       a.href = doc.fileDataUrl;
@@ -198,6 +210,27 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
           </div>
 
           <div className="flex items-center gap-2">
+            {doc.fileUrl && (
+              <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700 text-xs mr-1">
+                <button
+                  onClick={() => setViewMode('paper')}
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition ${
+                    viewMode === 'paper' ? 'bg-cyan-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Formato Sanatorial
+                </button>
+                <button
+                  onClick={() => setViewMode('raw_pdf')}
+                  className={`px-2.5 py-1 rounded text-xs font-semibold transition ${
+                    viewMode === 'raw_pdf' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  PDF Adjuntado
+                </button>
+              </div>
+            )}
+
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
@@ -227,11 +260,35 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
 
         {/* Modal Scrollable Body */}
         <div className="overflow-y-auto flex-1 p-4 sm:p-8 bg-slate-950/60 print:p-0 print:bg-white">
-          {/* Printable Document Paper */}
-          <div
-            ref={printAreaRef}
-            className="bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-10 max-w-3xl mx-auto border border-slate-300 print:shadow-none print:border-none print:p-6 print:max-w-full"
-          >
+          {doc.fileUrl && viewMode === 'raw_pdf' ? (
+            <div className="max-w-4xl mx-auto h-[78vh] flex flex-col bg-slate-900 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl">
+              <div className="bg-slate-900 border-b border-slate-800 p-3 px-4 flex items-center justify-between text-xs text-slate-300">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-purple-400" />
+                  <span className="font-mono font-semibold text-white">{doc.fileName}</span>
+                </div>
+                <a
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-cyan-300 border border-slate-700 transition font-semibold"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Abrir en pestaña nueva</span>
+                </a>
+              </div>
+              <iframe
+                src={doc.fileUrl}
+                className="w-full flex-1 border-0 bg-slate-800"
+                title={doc.title}
+              />
+            </div>
+          ) : (
+            /* Printable Document Paper */
+            <div
+              ref={printAreaRef}
+              className="bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-10 max-w-3xl mx-auto border border-slate-300 print:shadow-none print:border-none print:p-6 print:max-w-full"
+            >
             {/* If uploaded custom image file exists, show preview */}
             {doc.fileDataUrl && doc.fileDataUrl.startsWith('data:image/') && (
               <div className="mb-6 border border-slate-300 rounded-lg overflow-hidden bg-slate-100 p-2 text-center">
@@ -654,8 +711,134 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
                   </div>
                 </div>
               </div>
+            ) : isBudget ? (
+              /* BRANCH 2: CEMET OFFICIAL SURGICAL BUDGET LAYOUT (REPLICA EXACTA DEL DOCUMENTO FÍSICO) */
+              <div className="text-slate-900 font-sans p-2 sm:p-6 space-y-6 max-w-2xl mx-auto bg-white">
+                {/* Header: CEMET Emblem Left, Date Right */}
+                <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+                  {/* CEMET Emblem */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-12 bg-gradient-to-tr from-sky-700 via-cyan-600 to-blue-500 rounded-lg p-1.5 flex flex-col items-center justify-center text-white shadow-xs">
+                      <div className="w-7 h-4 border border-white/90 rounded-xs flex items-center justify-center mb-0.5">
+                        <div className="w-2.5 h-2.5 bg-white/50 rounded-full"></div>
+                      </div>
+                      <span className="text-[10px] font-black tracking-widest leading-none">CEMET</span>
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-800 tracking-wider block">CEMET</span>
+                      <span className="text-[9px] text-slate-500 block uppercase">Centro Médico Especializado</span>
+                    </div>
+                  </div>
+
+                  {/* Top Right Date */}
+                  <div className="text-right text-xs font-serif text-slate-800 pt-2">
+                    <span>San Martín , {doc.date ? new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(doc.date + 'T12:00:00Z')) : '17 de octubre de 2026'}</span>
+                  </div>
+                </div>
+
+                {/* Document Title (Underlined) */}
+                <div className="pt-2">
+                  <h3 className="text-base font-bold text-slate-900 underline underline-offset-4 tracking-tight">
+                    Presupuesto quirurgico
+                  </h3>
+                </div>
+
+                {/* Patient Information Section */}
+                <div className="space-y-1.5 text-xs text-slate-900 font-sans leading-relaxed">
+                  <p>
+                    <span className="underline font-semibold">Paciente:</span>{' '}
+                    <span className="font-medium">{patient?.patientName || 'Daniel Alberto Papasidero'}</span>
+                  </p>
+                  <p>
+                    <span className="underline font-semibold">Obra social:</span>{' '}
+                    <span>{patient?.insuranceProvider || 'Corporacion medica asistencial.'}</span>
+                  </p>
+                  <p>
+                    <span className="font-medium">{patient?.insurancePlan || 'Plan 606'}</span>
+                  </p>
+                  <p>
+                    <span className="underline font-semibold">Afiliado:</span>{' '}
+                    <span className="font-mono">{patient?.insuranceAffiliateNumber || '11424602'}</span>
+                  </p>
+                </div>
+
+                {/* Clinical Medical Text Paragraph */}
+                <div className="pt-3 text-xs sm:text-[13px] text-slate-900 leading-relaxed font-sans text-justify">
+                  <p>
+                    {doc.summaryText ||
+                      'Paciente de 50 años de edad que presenta una lesión tumoral solida retroperitoneal ubicada entre la glandula hepática, la Vena Cava Inferior y el riñon derecho. Los estudios muestran rápido crecimiento pudiendo tratarse de un Swanoma o un sarcoma, debiendo resecar y hacer vaciamiento locoregional y de ser factible precavoaortico. Es probable tener que efectuar una nefrectomía parcial ipsilateral.'}
+                  </p>
+                </div>
+
+                {/* Team, Duration & UCI Stay */}
+                <div className="pt-4 space-y-2 text-xs sm:text-[13px] text-slate-900 leading-relaxed">
+                  <p>
+                    <span className="underline font-semibold">Cirujano interviniente:</span>{' '}
+                    <span className="font-semibold">{patient?.surgeonName ? patient.surgeonName.replace('Dr. ', '') : 'Ciavarelli Miguel Angel.'}</span>
+                  </p>
+                  <p>
+                    <span className="underline font-semibold">Ayudantes:</span>{' '}
+                    <span>
+                      {patient?.assistantName ? patient.assistantName.replace('Dr. ', '') : 'Delpiano Angelo'}
+                      {patient?.secondAssistantName ? `, ${patient.secondAssistantName.replace('Dr. ', '')}` : ''}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="underline font-semibold">Duración aproximada de la cirugía</span>{' '}
+                    <span>{patient?.estimatedDurationHours ? `${patient.estimatedDurationHours === 5 ? 'cinco' : patient.estimatedDurationHours} horas.` : 'cinco horas.'}</span>
+                  </p>
+                  <p>
+                    <span className="underline font-semibold">Internacion aproximada</span>{' '}
+                    <span>en Unidad de Cuidados Intensivos aproximada de {patient?.icuDaysEstimated === 3 ? 'tres' : (patient?.icuDaysEstimated || 'tres')} días.</span>
+                  </p>
+                </div>
+
+                {/* Budget Amount (Honorarios) */}
+                <div className="pt-5 pb-2 text-xs sm:text-[13px] text-slate-900">
+                  <p className="font-semibold">
+                    Honorarios del equipo quirúrgico{' '}
+                    <span className="font-bold">
+                      {patient?.budgetAmount
+                        ? `${patient.budgetAmount.toLocaleString('es-AR')} pesos.`
+                        : '1.300.000 pesos.'}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Signature Block (Right Aligned) */}
+                <div className="pt-10 pb-4 flex justify-end">
+                  <div className="text-center min-w-[220px] font-sans">
+                    <p className="font-bold text-xs sm:text-sm text-slate-900">
+                      {doc.signee || 'Dr. Miguel Angel Ciavarelli'}
+                    </p>
+                    <p className="text-[11px] text-slate-700 font-mono mt-0.5">
+                      {doc.registrationNumber || 'MN 70212 MP 440703'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Official Status Verification Stamp */}
+                <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500 font-sans print:hidden">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] ${
+                      patient?.status === 'PRESUPUESTADO' || patient?.budgetStatus === 'PENDIENTE_APROBACION'
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                    }`}>
+                      {patient?.status === 'PRESUPUESTADO' || patient?.budgetStatus === 'PENDIENTE_APROBACION'
+                        ? '⏳ EN ESPERA DE APROBACIÓN SANATORIAL'
+                        : `✅ APROBADO · CIRUGÍA ASIGNADA: ${patient?.surgeryDate || 'CONFIRMADA'}`}
+                    </span>
+                    <span>Documento oficial adjuntado al expediente</span>
+                  </div>
+
+                  <span className="font-mono text-[10px] text-slate-400">
+                    Archivo: {doc.fileName}
+                  </span>
+                </div>
+              </div>
             ) : (
-              /* BRANCH 2: OFFICIAL CLINICAL SURGICAL PROTOCOL LAYOUT */
+              /* BRANCH 3: OFFICIAL CLINICAL SURGICAL PROTOCOL LAYOUT */
               <div className="font-serif text-slate-900 space-y-6">
                 {/* Institution Header */}
                 <div className="border-b-2 border-slate-900 pb-4 mb-6">
@@ -859,7 +1042,8 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
               </div>
             )}
           </div>
-        </div>
+        )}
+      </div>
 
         {/* Modal Footer */}
         <div className="px-6 py-3 border-t border-slate-800 flex items-center justify-between bg-slate-950/90 text-xs text-slate-400 print:hidden">

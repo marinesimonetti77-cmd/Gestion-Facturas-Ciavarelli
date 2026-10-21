@@ -17,7 +17,8 @@ import {
   FileCheck,
   CreditCard,
   Paperclip,
-  FileText
+  FileText,
+  RefreshCw,
 } from 'lucide-react';
 import { Invoice, InvoiceStatus, SurgicalCase, AttachedDocument } from '../types/surgical';
 import { formatCurrency, CurrencyCode } from '../lib/currency';
@@ -36,6 +37,7 @@ interface InvoicesListProps {
   onUpdateTotalAmount: (id: string, amount: number) => void;
   onViewCase: (caseId: string) => void;
   onViewDocument?: (doc: AttachedDocument, c?: SurgicalCase, inv?: Invoice) => void;
+  onSyncInvoices?: () => void;
 }
 
 export const InvoicesList: React.FC<InvoicesListProps> = ({
@@ -51,10 +53,12 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
   onUpdateTotalAmount,
   onViewCase,
   onViewDocument,
+  onSyncInvoices,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedInsurance, setSelectedInsurance] = useState<string>('ALL');
+  const [quickFilter, setQuickFilter] = useState<'ALL' | 'PENDING_OCT' | 'COLLECTED'>('ALL');
 
   const insurancesList = useMemo(() => {
     const set = new Set<string>();
@@ -64,8 +68,46 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
     return Array.from(set);
   }, [invoices]);
 
+  // Specific calculation for October 20 pending collections
+  const octoberPendingInvoices = useMemo(() => {
+    return invoices.filter(
+      i =>
+        i.status !== 'COBRADA' &&
+        (i.expectedCollectionDate?.includes('2026-10') ||
+          i.issueDate?.includes('2026-10') ||
+          i.invoiceNumber?.includes('293') ||
+          i.invoiceNumber?.includes('294') ||
+          i.invoiceNumber?.includes('295') ||
+          i.id === 'inv-afip-293' ||
+          i.id === 'inv-afip-294' ||
+          i.id === 'inv-afip-295')
+    );
+  }, [invoices]);
+
+  const octoberPendingTotal = useMemo(() => {
+    return octoberPendingInvoices.reduce(
+      (acc, i) => acc + (Number(i.pendingAmount) || Number(i.totalAmount) || 0),
+      0
+    );
+  }, [octoberPendingInvoices]);
+
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
+    const list = invoices.filter(inv => {
+      // Quick tab filter
+      if (quickFilter === 'PENDING_OCT') {
+        const isOct =
+          inv.status !== 'COBRADA' &&
+          (inv.expectedCollectionDate?.includes('2026-10') ||
+            inv.issueDate?.includes('2026-10') ||
+            inv.invoiceNumber?.includes('294') ||
+            inv.invoiceNumber?.includes('295') ||
+            inv.id === 'inv-afip-294' ||
+            inv.id === 'inv-afip-295');
+        if (!isOct) return false;
+      } else if (quickFilter === 'COLLECTED') {
+        if (inv.status !== 'COBRADA') return false;
+      }
+
       if (selectedStatus !== 'ALL' && inv.status !== selectedStatus) {
         return false;
       }
@@ -86,7 +128,12 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
       }
       return true;
     });
-  }, [invoices, selectedStatus, selectedInsurance, searchTerm]);
+
+    // Sort newest issueDate first so October 2026 invoices appear at the top!
+    return [...list].sort(
+      (a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
+    );
+  }, [invoices, quickFilter, selectedStatus, selectedInsurance, searchTerm]);
 
   const handleExportCSV = () => {
     const headers = [
@@ -214,6 +261,99 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
         </div>
       </div>
 
+      {/* Banner Destacado: Cobranzas Pendientes para el 20 de Octubre de 2026 */}
+      {octoberPendingInvoices.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-900 border-2 border-amber-500/80 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 shrink-0 mt-0.5 shadow-sm">
+                <Clock className="w-6 h-6 text-amber-400 animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-mono">
+                    Vto. Cobro Día 20
+                  </span>
+                  <span className="text-xs text-amber-200 font-semibold">
+                    Mes en Curso · Octubre 2026
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Pendiente de Cobro para el 20/10/2026: <span className="text-amber-300 font-mono font-black">{formatCurrency(octoberPendingTotal, currency)}</span>
+                </h3>
+                <p className="text-xs text-slate-300 max-w-2xl">
+                  Se emitieron <strong>{octoberPendingInvoices.length} Facturas A con CAE ARCA/AFIP</strong> por prestaciones médicas y cirugías, con fecha límite de cobro para este <strong>20 de Octubre</strong>:
+                </p>
+
+                {/* Sub-tarjetas de facturas de Octubre */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2">
+                  {octoberPendingInvoices.map(inv => (
+                    <div
+                      key={inv.id}
+                      className="bg-slate-950/90 border border-amber-500/40 rounded-xl p-3 flex flex-col justify-between space-y-2 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="font-mono text-xs font-bold text-cyan-400">
+                            {inv.invoiceNumber}
+                          </span>
+                          <h4 className="text-xs font-bold text-white mt-0.5">
+                            {inv.patientName}
+                          </h4>
+                          <span className="text-[11px] text-slate-400 block">
+                            {inv.insuranceProvider} · {inv.clinic}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-700/60 px-2 py-0.5 rounded shrink-0">
+                          {formatCurrency(inv.totalAmount, currency)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px]">
+                        <span className="text-amber-300 font-medium">
+                          📅 Cobro previsto: <strong>{inv.expectedCollectionDate}</strong>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {onViewDocument && inv.attachedDocuments?.[0] && (
+                            <button
+                              onClick={() => onViewDocument(inv.attachedDocuments![0], undefined, inv)}
+                              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[11px] font-semibold border border-slate-700 transition"
+                            >
+                              Ver Factura
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onUpdateStatus(inv.id, 'COBRADA')}
+                            className="px-2 py-0.5 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition shadow-xs"
+                            title="Marcar como cobrada"
+                          >
+                            Cobrada ✓
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start lg:self-center shrink-0">
+              <button
+                onClick={() => setQuickFilter(quickFilter === 'PENDING_OCT' ? 'ALL' : 'PENDING_OCT')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md ${
+                  quickFilter === 'PENDING_OCT'
+                    ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
+                    : 'bg-amber-500/20 border border-amber-500/50 text-amber-200 hover:bg-amber-500/30'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span>{quickFilter === 'PENDING_OCT' ? 'Ver Todas las Facturas' : 'Filtrar Solo Pendientes 20/10'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Control bar: Search, Filters, CSV & Create */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -238,6 +378,17 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onSyncInvoices && (
+              <button
+                onClick={onSyncInvoices}
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-semibold border border-amber-500/50 transition shadow-sm"
+                title="Sincronizar y recargar las facturas oficiales de Octubre (294 y 295)"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                <span>Sincronizar Facturas 20/10</span>
+              </button>
+            )}
+
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition"
@@ -364,9 +515,16 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
                       {/* Factura & Paciente */}
                       <td className="py-3 px-4">
                         <div className="flex flex-col">
-                          <span className="font-mono text-xs font-bold text-cyan-400">
-                            {inv.invoiceNumber}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-cyan-400">
+                              {inv.invoiceNumber}
+                            </span>
+                            {(inv.expectedCollectionDate === '2026-10-20' || inv.id === 'inv-afip-294' || inv.id === 'inv-afip-295') && inv.status !== 'COBRADA' && (
+                              <span className="text-[10px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.2 rounded font-mono shadow-xs">
+                                📅 VTO 20/10
+                              </span>
+                            )}
+                          </div>
                           <span className="font-semibold text-white text-sm">
                             {inv.patientName}
                           </span>

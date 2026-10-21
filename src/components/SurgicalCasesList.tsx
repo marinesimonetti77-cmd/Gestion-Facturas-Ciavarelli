@@ -21,7 +21,7 @@ import {
   Paperclip
 } from 'lucide-react';
 import { SurgicalCase, SurgeryStatus, AttachedDocument } from '../types/surgical';
-import { calculateAge } from '../lib/surgicalLogic';
+import { calculateAge, getCaseLiquidationStatus } from '../lib/surgicalLogic';
 
 interface SurgicalCasesListProps {
   cases: SurgicalCase[];
@@ -56,7 +56,22 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
   const [selectedClinic, setSelectedClinic] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedSurgeon, setSelectedSurgeon] = useState<string>('ALL');
+  const [liquidationFilter, setLiquidationFilter] = useState<'ALL' | 'DUE' | 'AUDIT' | 'BILLED'>('ALL');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+
+  // Counts for the 3-month liquidation stages
+  const dueCount = useMemo(
+    () => cases.filter(c => getCaseLiquidationStatus(c).stage === 'DUE_FOR_BILLING').length,
+    [cases]
+  );
+  const auditCount = useMemo(
+    () => cases.filter(c => getCaseLiquidationStatus(c).stage === 'IN_AUDIT').length,
+    [cases]
+  );
+  const billedCount = useMemo(
+    () => cases.filter(c => getCaseLiquidationStatus(c).stage === 'BILLED').length,
+    [cases]
+  );
 
   // Filtered cases
   const filteredCases = useMemo(() => {
@@ -73,6 +88,13 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
       if (selectedSurgeon !== 'ALL' && c.surgeonName !== selectedSurgeon) {
         return false;
       }
+      // 3-Month Liquidation stage filter
+      if (liquidationFilter !== 'ALL') {
+        const liqStatus = getCaseLiquidationStatus(c);
+        if (liquidationFilter === 'DUE' && liqStatus.stage !== 'DUE_FOR_BILLING') return false;
+        if (liquidationFilter === 'AUDIT' && liqStatus.stage !== 'IN_AUDIT') return false;
+        if (liquidationFilter === 'BILLED' && liqStatus.stage !== 'BILLED') return false;
+      }
       // Search term
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -88,7 +110,7 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
       }
       return true;
     });
-  }, [cases, selectedClinic, selectedStatus, selectedSurgeon, searchTerm]);
+  }, [cases, selectedClinic, selectedStatus, selectedSurgeon, liquidationFilter, searchTerm]);
 
   // Export filtered to CSV
   const handleExportCSV = () => {
@@ -146,6 +168,8 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
 
   const getStatusBadgeClass = (status: SurgeryStatus) => {
     switch (status) {
+      case 'PRESUPUESTADO':
+        return 'bg-amber-500/10 text-amber-300 border-amber-500/40 font-bold';
       case 'PROGRAMADA':
         return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
       case 'EN_CURSO':
@@ -278,12 +302,13 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
             </select>
           </div>
 
-          {(selectedClinic !== 'ALL' || selectedStatus !== 'ALL' || selectedSurgeon !== 'ALL' || searchTerm) && (
+          {(selectedClinic !== 'ALL' || selectedStatus !== 'ALL' || selectedSurgeon !== 'ALL' || liquidationFilter !== 'ALL' || searchTerm) && (
             <button
               onClick={() => {
                 setSelectedClinic('ALL');
                 setSelectedStatus('ALL');
                 setSelectedSurgeon('ALL');
+                setLiquidationFilter('ALL');
                 setSearchTerm('');
               }}
               className="text-cyan-400 hover:underline ml-auto"
@@ -291,6 +316,72 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
               Restablecer filtros
             </button>
           )}
+        </div>
+      </div>
+
+      {/* 3-Month Liquidation Rule Clarification Callout & Quick Filters */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
+        <div className="bg-amber-950/40 border border-amber-600/50 rounded-xl p-3.5 flex items-start gap-3 text-amber-200 text-xs">
+          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+          <div className="leading-relaxed">
+            <span className="font-bold text-white block mb-0.5">
+              Regla de Facturación & Cobro (3 meses desde el Parte Quirúrgico):
+            </span>
+            Luego de un parte quirúrgico, a los <strong>3 meses</strong> se espera que el sanatorio envíe la liquidación médica oficial. Una vez recibida, el profesional puede confeccionar y emitir la <strong>Factura A</strong> (ARCA/AFIP) para luego gestionar el cobro o reclamar (habitualmente el día 20 del mes).
+            {dueCount > 0 && (
+              <span className="text-rose-300 font-bold block mt-1.5 bg-rose-950/60 p-2 rounded-lg border border-rose-600/60">
+                🚨 Importante: Hay {dueCount} casos de Julio que ya cumplieron los 3 meses y quedaron a la espera de la liquidación de la institución para poder facturar.
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Filter Tabs by Postoperative / Settlement Stage */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+          <span className="text-slate-400 text-[11px] font-semibold mr-1">Etapa de liquidación:</span>
+          <button
+            onClick={() => setLiquidationFilter('ALL')}
+            className={`px-3 py-1.5 rounded-lg border font-semibold transition ${
+              liquidationFilter === 'ALL'
+                ? 'bg-blue-600 border-blue-500 text-white shadow-xs'
+                : 'bg-slate-950 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            Todas ({cases.length})
+          </button>
+          <button
+            onClick={() => setLiquidationFilter('DUE')}
+            className={`px-3 py-1.5 rounded-lg border font-bold transition flex items-center gap-1.5 ${
+              liquidationFilter === 'DUE'
+                ? 'bg-rose-600 border-rose-500 text-white shadow-xs animate-pulse'
+                : 'bg-rose-950/40 border-rose-800/80 text-rose-300 hover:bg-rose-900/60'
+            }`}
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>🚨 A la espera de Liquidación (3 meses) ({dueCount})</span>
+          </button>
+          <button
+            onClick={() => setLiquidationFilter('AUDIT')}
+            className={`px-3 py-1.5 rounded-lg border font-medium transition flex items-center gap-1.5 ${
+              liquidationFilter === 'AUDIT'
+                ? 'bg-purple-600 border-purple-500 text-white shadow-xs'
+                : 'bg-purple-950/40 border-purple-800/70 text-purple-300 hover:bg-purple-900/60'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>⏳ En Auditoría Sanatorial (&lt; 3 meses) ({auditCount})</span>
+          </button>
+          <button
+            onClick={() => setLiquidationFilter('BILLED')}
+            className={`px-3 py-1.5 rounded-lg border font-medium transition flex items-center gap-1.5 ${
+              liquidationFilter === 'BILLED'
+                ? 'bg-emerald-600 border-emerald-500 text-white shadow-xs'
+                : 'bg-emerald-950/40 border-emerald-800/70 text-emerald-300 hover:bg-emerald-900/60'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>✓ Facturados ({billedCount})</span>
+          </button>
         </div>
       </div>
 
@@ -323,6 +414,7 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
                   <th className="py-3 px-4">Fecha & Hora</th>
                   <th className="py-3 px-4">Cirujano & Cobertura</th>
                   <th className="py-3 px-4">Estado (Editable)</th>
+                  <th className="py-3 px-4">Ventana 3 Meses / Liquidación</th>
                   <th className="py-3 px-4">Materiales</th>
                   <th className="py-3 px-4">Adjuntos / Protocolos</th>
                   <th className="py-3 px-4">Facturación</th>
@@ -417,12 +509,47 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
                           className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer ${getStatusBadgeClass(c.status)}`}
                           title="Haga clic para cambiar el estado"
                         >
+                          <option value="PRESUPUESTADO">PRESUPUESTADO</option>
                           <option value="PROGRAMADA">PROGRAMADA</option>
                           <option value="EN_CURSO">EN CURSO</option>
                           <option value="REALIZADA">REALIZADA</option>
                           <option value="REPROGRAMADA">REPROGRAMADA</option>
                           <option value="CANCELADA">CANCELADA</option>
                         </select>
+                      </td>
+
+                      {/* 3-Month Postoperative Liquidation Alert */}
+                      <td className="py-3 px-4">
+                        {(() => {
+                          const liq = getCaseLiquidationStatus(c);
+                          return (
+                            <div className="flex flex-col gap-1 min-w-[210px]">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold ${liq.badgeClass}`}>
+                                {liq.stage === 'DUE_FOR_BILLING' ? (
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-300 shrink-0" />
+                                ) : liq.stage === 'BILLED' ? (
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                ) : (
+                                  <Clock className="w-3.5 h-3.5 text-purple-300 shrink-0" />
+                                )}
+                                <span>{liq.stage === 'DUE_FOR_BILLING' ? '3 MESES CUMPLIDOS' : liq.stage === 'BILLED' ? 'Liquidado & Facturado' : 'En Auditoría (< 3 m)'}</span>
+                              </span>
+                              <div className="text-[10px] leading-tight">
+                                {liq.stage === 'DUE_FOR_BILLING' ? (
+                                  <span className="text-rose-300 font-semibold block">
+                                    🚨 {liq.daysSinceSurgery} días del Parte Qx · Espera liquidación para facturar
+                                  </span>
+                                ) : liq.stage === 'IN_AUDIT' ? (
+                                  <span className="text-purple-300 block">
+                                    {liq.daysSinceSurgery} días transcurridos · Estimada: {c.estimatedSettlementMonth || '3 meses'}
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-400 block">Factura vinculada</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Materials */}
@@ -481,16 +608,31 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
                             <FileText className="w-3.5 h-3.5" />
                             <span>Ver Factura</span>
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => onCreateInvoice(c)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/80 px-2.5 py-1 rounded-lg transition"
-                            title="Generar factura para este caso"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Generar Factura</span>
-                          </button>
-                        )}
+                        ) : (() => {
+                          const liq = getCaseLiquidationStatus(c);
+                          if (liq.stage === 'DUE_FOR_BILLING') {
+                            return (
+                              <button
+                                onClick={() => onCreateInvoice(c)}
+                                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-200 bg-rose-950/90 hover:bg-rose-900 border border-rose-500 px-3 py-1.5 rounded-lg transition shadow-md shadow-rose-950/50 animate-pulse"
+                                title="3 meses cumplidos. Confeccionar Factura A o reclamar liquidación"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Facturar Ahora</span>
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => onCreateInvoice(c)}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/80 px-2.5 py-1 rounded-lg transition"
+                              title="Generar factura para este caso"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Generar Factura</span>
+                            </button>
+                          );
+                        })()}
                       </td>
 
                       {/* Actions */}
@@ -528,106 +670,143 @@ export const SurgicalCasesList: React.FC<SurgicalCasesListProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCases.map(c => {
             const age = calculateAge(c.patientBirthDate || '');
+            const liq = getCaseLiquidationStatus(c);
             return (
               <div
                 key={c.id}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm hover:border-slate-700 transition flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">
-                        {c.patientMedicalRecordNumber}
-                      </span>
-                      <h4 className="text-base font-bold text-white mt-1">
-                        {c.patientName}
-                      </h4>
-                      <p className="text-xs text-slate-400">
-                        DNI: {c.patientDni} {age > 0 ? `· ${age} años` : ''}
-                      </p>
-                    </div>
-
-                    <select
-                      value={c.status}
-                      onChange={e => onUpdateStatus(c.id, e.target.value as SurgeryStatus)}
-                      className={`text-xs font-bold px-2 py-1 rounded-lg border focus:outline-none ${getStatusBadgeClass(c.status)}`}
-                    >
-                      <option value="PROGRAMADA">PROGRAMADA</option>
-                      <option value="EN_CURSO">EN CURSO</option>
-                      <option value="REALIZADA">REALIZADA</option>
-                      <option value="REPROGRAMADA">REPROGRAMADA</option>
-                      <option value="CANCELADA">CANCELADA</option>
-                    </select>
-                  </div>
-
-                  <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-1.5">
-                    <div className="font-semibold text-slate-200 text-xs">
-                      {c.procedureName}
-                    </div>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                      <Stethoscope className="w-3.5 h-3.5 text-blue-400" />
-                      <span>{c.surgeonName}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-purple-400" />
-                      <span>{c.estimatedSurgeryClinic} ({c.operatingRoom || 'S/Q'})</span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>{c.surgeryDate} · {c.surgeryTime} hs</span>
-                    </div>
-                  </div>
-
-                  {c.materials && c.materials.length > 0 && (
-                    <div className="text-[11px] text-slate-300 bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
-                      <span className="font-semibold text-cyan-300 block mb-1">
-                        Prótesis / Insumos ({c.materials.length}):
-                      </span>
-                      <ul className="space-y-1">
-                        {c.materials.map(m => (
-                          <li key={m.id} className="text-slate-300 flex items-center justify-between">
-                            <span className="truncate max-w-[180px]">{m.description}</span>
-                            <span className="text-[10px] font-mono font-semibold px-1 rounded bg-slate-900 border border-slate-700">
-                              {m.status}
+                    className={`bg-slate-900 rounded-2xl p-4 shadow-sm transition flex flex-col justify-between space-y-4 border ${
+                      liq.stage === 'DUE_FOR_BILLING'
+                        ? 'border-rose-500/80 ring-1 ring-rose-500/40 bg-gradient-to-b from-rose-950/20 to-slate-900'
+                        : 'border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      {/* Top 3-Month Liquidation Alert Notice */}
+                      {liq.stage === 'DUE_FOR_BILLING' ? (
+                        <div className="bg-rose-950/80 border border-rose-500/80 rounded-xl p-3 text-xs text-rose-200 flex items-start gap-2.5 shadow-md shadow-rose-950/40 animate-pulse">
+                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                          <div className="flex-1 leading-snug">
+                            <span className="font-bold text-white block">🚨 3 MESES CUMPLIDOS ({liq.daysSinceSurgery} días)</span>
+                            <span className="text-[11px] text-rose-200 block mt-0.5">
+                              Parte Qx del {c.surgeryDate}. A la espera de liquidación para emitir Factura A.
                             </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                          </div>
+                        </div>
+                      ) : liq.stage === 'IN_AUDIT' ? (
+                        <div className="bg-purple-950/30 border border-purple-800/60 rounded-xl px-3 py-1.5 text-[11px] text-purple-300 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <Clock className="w-3.5 h-3.5 text-purple-400" />
+                            <span>En auditoría sanatorial ({liq.daysSinceSurgery} días)</span>
+                          </span>
+                          <span className="font-mono text-[10px] bg-purple-900/60 border border-purple-700/60 px-1.5 py-0.5 rounded text-purple-200">
+                            Espera: {c.estimatedSettlementMonth || '3 meses'}
+                          </span>
+                        </div>
+                      ) : null}
 
-                  {c.attachedDocuments && c.attachedDocuments.length > 0 && (
-                    <div className="pt-2">
-                      <button
-                        onClick={() => onViewDocument ? onViewDocument(c.attachedDocuments![0], c) : onEditCase(c)}
-                        className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-cyan-950/50 hover:bg-cyan-900/60 border border-cyan-800/80 text-cyan-300 transition flex items-center justify-center gap-1.5"
-                      >
-                        <Paperclip className="w-3.5 h-3.5" />
-                        <span className="truncate">Ver {c.attachedDocuments[0].title}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">
+                            {c.patientMedicalRecordNumber}
+                          </span>
+                          <h4 className="text-base font-bold text-white mt-1">
+                            {c.patientName}
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            DNI: {c.patientDni} {age > 0 ? `· ${age} años` : ''}
+                          </p>
+                        </div>
 
-                {/* Card footer */}
-                <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                  {c.invoiceId ? (
-                    <button
-                      onClick={() => onViewInvoice(c.invoiceId!)}
-                      className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Ver Factura</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onCreateInvoice(c)}
-                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Facturar</span>
-                    </button>
-                  )}
+                        <select
+                          value={c.status}
+                          onChange={e => onUpdateStatus(c.id, e.target.value as SurgeryStatus)}
+                          className={`text-xs font-bold px-2 py-1 rounded-lg border focus:outline-none ${getStatusBadgeClass(c.status)}`}
+                        >
+                          <option value="PRESUPUESTADO">PRESUPUESTADO</option>
+                          <option value="PROGRAMADA">PROGRAMADA</option>
+                          <option value="EN_CURSO">EN CURSO</option>
+                          <option value="REALIZADA">REALIZADA</option>
+                          <option value="REPROGRAMADA">REPROGRAMADA</option>
+                          <option value="CANCELADA">CANCELADA</option>
+                        </select>
+                      </div>
+
+                      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-1.5">
+                        <div className="font-semibold text-slate-200 text-xs">
+                          {c.procedureName}
+                        </div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                          <Stethoscope className="w-3.5 h-3.5 text-blue-400" />
+                          <span>{c.surgeonName}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                          <span>{c.estimatedSurgeryClinic} ({c.operatingRoom || 'S/Q'})</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>{c.surgeryDate} · {c.surgeryTime} hs</span>
+                        </div>
+                      </div>
+
+                      {c.materials && c.materials.length > 0 && (
+                        <div className="text-[11px] text-slate-300 bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+                          <span className="font-semibold text-cyan-300 block mb-1">
+                            Prótesis / Insumos ({c.materials.length}):
+                          </span>
+                          <ul className="space-y-1">
+                            {c.materials.map(m => (
+                              <li key={m.id} className="text-slate-300 flex items-center justify-between">
+                                <span className="truncate max-w-[180px]">{m.description}</span>
+                                <span className="text-[10px] font-mono font-semibold px-1 rounded bg-slate-900 border border-slate-700">
+                                  {m.status}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {c.attachedDocuments && c.attachedDocuments.length > 0 && (
+                        <div className="pt-2">
+                          <button
+                            onClick={() => onViewDocument ? onViewDocument(c.attachedDocuments![0], c) : onEditCase(c)}
+                            className="w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-cyan-950/50 hover:bg-cyan-900/60 border border-cyan-800/80 text-cyan-300 transition flex items-center justify-center gap-1.5"
+                          >
+                            <Paperclip className="w-3.5 h-3.5" />
+                            <span className="truncate">Ver {c.attachedDocuments[0].title}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card footer */}
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                      {c.invoiceId ? (
+                        <button
+                          onClick={() => onViewInvoice(c.invoiceId!)}
+                          className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Ver Factura</span>
+                        </button>
+                      ) : liq.stage === 'DUE_FOR_BILLING' ? (
+                        <button
+                          onClick={() => onCreateInvoice(c)}
+                          className="text-xs font-bold text-rose-200 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/80 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition shadow-sm animate-pulse"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Facturar Ahora</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onCreateInvoice(c)}
+                          className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Facturar</span>
+                        </button>
+                      )}
 
                   <div className="flex items-center gap-1">
                     <button

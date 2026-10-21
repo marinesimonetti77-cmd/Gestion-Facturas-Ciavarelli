@@ -107,6 +107,7 @@ export interface SurgeryMetrics {
   completedCount: number;
   cancelledCount: number;
   materialsPendingCount: number;
+  pendingBudgetsCount: number;
 }
 
 /**
@@ -118,12 +119,21 @@ export function calculateSurgeryMetrics(cases: SurgicalCase[]): SurgeryMetrics {
   let completedCount = 0;
   let cancelledCount = 0;
   let materialsPendingCount = 0;
+  let pendingBudgetsCount = 0;
 
   for (const c of cases) {
     if (c.status === 'PROGRAMADA' || c.status === 'REPROGRAMADA') scheduledCount++;
     else if (c.status === 'EN_CURSO') inProgressCount++;
     else if (c.status === 'REALIZADA') completedCount++;
     else if (c.status === 'CANCELADA') cancelledCount++;
+
+    if (
+      c.status === 'PRESUPUESTADO' ||
+      c.budgetStatus === 'PENDIENTE_APROBACION' ||
+      (!c.surgeryDate && (c.budgetAmount || c.attachedDocuments?.some(d => d.fileType === 'presupuesto')))
+    ) {
+      pendingBudgetsCount++;
+    }
 
     if (c.materials && c.materials.length > 0) {
       const hasPending = c.materials.some(m => m.status === 'SOLICITADO');
@@ -138,6 +148,7 @@ export function calculateSurgeryMetrics(cases: SurgicalCase[]): SurgeryMetrics {
     completedCount,
     cancelledCount,
     materialsPendingCount,
+    pendingBudgetsCount,
   };
 }
 
@@ -194,5 +205,105 @@ export function validateInvoice(data: Partial<Invoice>): { isValid: boolean; err
   return {
     isValid: Object.keys(errors).length === 0,
     errors,
+  };
+}
+
+export interface CaseLiquidationAlert {
+  stage: 'DUE_FOR_BILLING' | 'IN_AUDIT' | 'BILLED';
+  message: string;
+  badgeClass: string;
+  expectedMonth: string;
+  daysSinceSurgery: number;
+  monthsSinceSurgery: number;
+  isUrgent: boolean;
+  actionText: string;
+  hasLiquidationDoc?: boolean;
+}
+
+/**
+ * Tracks the 3-month postoperative window from surgery date to settlement and invoicing
+ * Regla: Luego de un parte qx a los 3 meses se espera el envío de la liquidación para facturar
+ */
+export function getCaseLiquidationStatus(c: SurgicalCase, referenceDate = '2026-10-16'): CaseLiquidationAlert {
+  if (c.invoiceId) {
+    return {
+      stage: 'BILLED',
+      message: 'Liquidado y facturado',
+      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-700/80',
+      expectedMonth: c.estimatedSettlementMonth || 'Facturado',
+      daysSinceSurgery: 0,
+      monthsSinceSurgery: 0,
+      isUrgent: false,
+      actionText: 'Ver Factura A',
+      hasLiquidationDoc: true,
+    };
+  }
+
+  if (c.status === 'PRESUPUESTADO' || !c.surgeryDate) {
+    return {
+      stage: 'IN_AUDIT',
+      message: 'Presupuesto en espera de aprobación sanatorial',
+      badgeClass: 'bg-amber-950/60 text-amber-300 border-amber-600/70',
+      expectedMonth: 'En aprobación',
+      daysSinceSurgery: 0,
+      monthsSinceSurgery: 0,
+      isUrgent: false,
+      actionText: 'Ver Presupuesto',
+      hasLiquidationDoc: false,
+    };
+  }
+
+  const surgeryTime = new Date(c.surgeryDate).getTime();
+  const refTime = new Date(referenceDate).getTime();
+  const daysSince = Math.floor((refTime - surgeryTime) / (1000 * 60 * 60 * 24));
+  const monthsSince = Number((daysSince / 30.4).toFixed(1));
+
+  const hasLiquidationDoc = Boolean(
+    c.attachedDocuments && c.attachedDocuments.some(d => d.fileType === 'liquidacion' || d.fileName.toLowerCase().includes('liquidacion'))
+  );
+
+  // If the official liquidation was received from the sanatorio:
+  if (hasLiquidationDoc) {
+    return {
+      stage: 'DUE_FOR_BILLING',
+      message: `📄 Liquidación Sanatorial Recibida (${daysSince} días) · Lista para Factura A`,
+      badgeClass: 'bg-amber-950/90 text-amber-200 border-amber-500 font-bold shadow-sm',
+      expectedMonth: c.estimatedSettlementMonth || 'octubre de 2026',
+      daysSinceSurgery: daysSince,
+      monthsSinceSurgery: monthsSince,
+      isUrgent: true,
+      actionText: 'Emitir Factura A',
+      hasLiquidationDoc: true,
+    };
+  }
+
+  // The 3-month clinical settlement rule:
+  // If >= 75 days or estimated month is October 2026 or earlier, it has reached or exceeded 3 months!
+  const is3MonthsFulfilled = daysSince >= 75 || (c.estimatedSettlementMonth && c.estimatedSettlementMonth.toLowerCase().includes('octubre'));
+
+  if (is3MonthsFulfilled) {
+    return {
+      stage: 'DUE_FOR_BILLING',
+      message: `🚨 ¡3 MESES CUMPLIDOS! (${daysSince} días) · A LA ESPERA DE LIQUIDACIÓN`,
+      badgeClass: 'bg-rose-950/90 text-rose-200 border-rose-500 font-bold animate-pulse shadow-sm',
+      expectedMonth: c.estimatedSettlementMonth || 'octubre de 2026',
+      daysSinceSurgery: daysSince,
+      monthsSinceSurgery: monthsSince,
+      isUrgent: true,
+      actionText: 'Reclamar Liquidación',
+      hasLiquidationDoc: false,
+    };
+  }
+
+  return {
+    stage: 'IN_AUDIT',
+    message: `⏳ En auditoría sanatorial (${daysSince} días · Espera a 3 meses: ${c.estimatedSettlementMonth || '3 meses'})`,
+    badgeClass: 'bg-purple-950/70 text-purple-200 border-purple-700/80',
+    expectedMonth: c.estimatedSettlementMonth || 'Próximamente',
+    daysSinceSurgery: daysSince,
+    monthsSinceSurgery: monthsSince,
+    isUrgent: false,
+    actionText: 'En espera de liquidación',
+    hasLiquidationDoc: false,
   };
 }

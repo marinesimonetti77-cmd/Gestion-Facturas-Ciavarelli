@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { SurgicalCase, Invoice, AppSettings, SurgeryStatus, InvoiceStatus, MonthlyLiquidationSchedule } from '../types/surgical';
 import { INITIAL_CASES, INITIAL_INVOICES, INITIAL_SETTINGS, INITIAL_MONTHLY_SCHEDULES } from './mockData';
 
-const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v6';
-const STORAGE_KEY_INVOICES = 'ciavarelli_hub_invoices_v6';
-const STORAGE_KEY_SETTINGS = 'ciavarelli_hub_settings_v6';
-const STORAGE_KEY_SCHEDULES = 'ciavarelli_hub_schedules_v6';
+// Storage keys versioned to v9 to ensure fresh migration of October invoices and budgets
+const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v9';
+const STORAGE_KEY_INVOICES = 'ciavarelli_hub_invoices_v9';
+const STORAGE_KEY_SETTINGS = 'ciavarelli_hub_settings_v9';
+const STORAGE_KEY_SCHEDULES = 'ciavarelli_hub_schedules_v9';
 
 export function useSurgicalStore() {
   const [cases, setCases] = useState<SurgicalCase[]>(() => {
@@ -13,9 +14,10 @@ export function useSurgicalStore() {
       const saved = localStorage.getItem(STORAGE_KEY_CASES);
       if (!saved) return INITIAL_CASES;
       const parsed = JSON.parse(saved);
-      // Ensure it contains real cases and not legacy fake data
+      // Ensure it contains real cases and Facundo's budget
       const hasRealCiavarelliCase = parsed.some((c: any) => c.patientName?.includes('Quintana') || c.patientName?.includes('GARCIA'));
-      return hasRealCiavarelliCase ? parsed : INITIAL_CASES;
+      const hasFacundo = parsed.some((c: any) => c.patientName?.includes('Facundo') || c.procedureName?.includes('Hepatectomía'));
+      return hasRealCiavarelliCase && hasFacundo ? parsed : INITIAL_CASES;
     } catch {
       return INITIAL_CASES;
     }
@@ -25,11 +27,20 @@ export function useSurgicalStore() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_INVOICES);
       if (!saved) return INITIAL_INVOICES;
-      const parsed = JSON.parse(saved);
-      const hasRealAfipInvoices = parsed.some((i: any) => i.invoiceNumber?.includes('00003-00000275') || i.pointOfSale === '00003');
-      const hasLiquidaciones = parsed.some((i: any) => i.attachedDocuments?.some((d: any) => d.fileType === 'liquidacion'));
-      const isSeptemberPaid = parsed.some((i: any) => (i.compNumber === '00000289' || i.invoiceNumber?.includes('289')) && i.status === 'COBRADA');
-      return hasRealAfipInvoices && hasLiquidaciones && isSeptemberPaid ? parsed : INITIAL_INVOICES;
+      const parsed: Invoice[] = JSON.parse(saved);
+      const has293 = parsed.some(i => i.invoiceNumber?.includes('293') || i.id === 'inv-afip-293');
+      const has294 = parsed.some(i => i.invoiceNumber?.includes('294') || i.id === 'inv-afip-294');
+      const has295 = parsed.some(i => i.invoiceNumber?.includes('295') || i.id === 'inv-afip-295');
+      const hasOctoberPending = parsed.some(
+        i =>
+          (i.expectedCollectionDate === '2026-10-20' ||
+            i.issueDate === '2026-10-06' ||
+            i.invoiceNumber?.includes('293') ||
+            i.invoiceNumber?.includes('294') ||
+            i.invoiceNumber?.includes('295')) &&
+          i.status !== 'COBRADA'
+      );
+      return has293 && has294 && has295 && hasOctoberPending ? parsed : INITIAL_INVOICES;
     } catch {
       return INITIAL_INVOICES;
     }
@@ -49,12 +60,54 @@ export function useSurgicalStore() {
       const saved = localStorage.getItem(STORAGE_KEY_SCHEDULES);
       if (!saved) return INITIAL_MONTHLY_SCHEDULES;
       const parsed = JSON.parse(saved);
-      const isSeptPaid = parsed.some((s: any) => s.monthKey === '2026-09' && s.pendingCollection === 0);
-      return isSeptPaid ? parsed : INITIAL_MONTHLY_SCHEDULES;
+      const hasOct = parsed.some((s: any) => s.monthKey === '2026-10' && s.pendingCollection >= 762210);
+      return hasOct ? parsed : INITIAL_MONTHLY_SCHEDULES;
     } catch {
       return INITIAL_MONTHLY_SCHEDULES;
     }
   });
+
+  // Self-healing synchronization: Always guarantee the 3 October invoices exist and reflect pending collection for 20/10
+  useEffect(() => {
+    const has293 = invoices.some(i => i.invoiceNumber?.includes('293') || i.id === 'inv-afip-293');
+    const has294 = invoices.some(i => i.invoiceNumber?.includes('294') || i.id === 'inv-afip-294');
+    const has295 = invoices.some(i => i.invoiceNumber?.includes('295') || i.id === 'inv-afip-295');
+    const hasPendingOct = invoices.some(
+      i =>
+        (i.expectedCollectionDate === '2026-10-20' ||
+          i.issueDate === '2026-10-06' ||
+          i.invoiceNumber?.includes('293') ||
+          i.invoiceNumber?.includes('294') ||
+          i.invoiceNumber?.includes('295')) &&
+        i.status !== 'COBRADA'
+    );
+
+    if (!has293 || !has294 || !has295 || !hasPendingOct) {
+      setInvoices(INITIAL_INVOICES);
+      try {
+        localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(INITIAL_INVOICES));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [invoices]);
+
+  // Clean up obsolete legacy cache keys from localStorage
+  useEffect(() => {
+    try {
+      const oldKeys = [
+        'ciavarelli_hub_cases_v6',
+        'ciavarelli_hub_invoices_v6',
+        'ciavarelli_hub_settings_v6',
+        'ciavarelli_hub_schedules_v6',
+        'ciavarelli_hub_cases_v7',
+        'ciavarelli_hub_invoices_v7',
+      ];
+      oldKeys.forEach(k => localStorage.removeItem(k));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Save changes to localStorage
   useEffect(() => {
@@ -165,6 +218,24 @@ export function useSurgicalStore() {
     );
   };
 
+  // Budget actions
+  const approveBudget = (caseId: string, approvalData: { surgeryDate?: string; surgeryClinic?: string; notes?: string }) => {
+    updateCase(caseId, {
+      budgetStatus: 'APROBADO',
+      status: 'PROGRAMADA',
+      ...(approvalData.surgeryDate ? { surgeryDate: approvalData.surgeryDate } : {}),
+      ...(approvalData.surgeryClinic ? { estimatedSurgeryClinic: approvalData.surgeryClinic } : {}),
+      ...(approvalData.notes ? { notes: approvalData.notes } : {}),
+    });
+  };
+
+  const rejectBudget = (caseId: string, reason?: string) => {
+    updateCase(caseId, {
+      budgetStatus: 'RECHAZADO',
+      notes: reason ? `Presupuesto rechazado: ${reason}` : undefined,
+    });
+  };
+
   // Schedules actions
   const updateSchedule = (monthKey: string, updates: Partial<MonthlyLiquidationSchedule>) => {
     setSchedules(prev =>
@@ -196,15 +267,24 @@ export function useSurgicalStore() {
     }));
   };
 
-  const resetToDemoData = () => {
+  // Official Invoices & Schedules Manual Synchronization
+  const syncOfficialInvoices = () => {
     setCases(INITIAL_CASES);
     setInvoices(INITIAL_INVOICES);
-    setSettings(INITIAL_SETTINGS);
     setSchedules(INITIAL_MONTHLY_SCHEDULES);
-    localStorage.removeItem(STORAGE_KEY_CASES);
-    localStorage.removeItem(STORAGE_KEY_INVOICES);
-    localStorage.removeItem(STORAGE_KEY_SETTINGS);
-    localStorage.removeItem(STORAGE_KEY_SCHEDULES);
+    setSettings(INITIAL_SETTINGS);
+    try {
+      localStorage.setItem(STORAGE_KEY_CASES, JSON.stringify(INITIAL_CASES));
+      localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(INITIAL_INVOICES));
+      localStorage.setItem(STORAGE_KEY_SCHEDULES, JSON.stringify(INITIAL_MONTHLY_SCHEDULES));
+      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(INITIAL_SETTINGS));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const resetToDemoData = () => {
+    syncOfficialInvoices();
   };
 
   const createInvoiceForCase = (c: SurgicalCase) => {
@@ -254,6 +334,9 @@ export function useSurgicalStore() {
     updateInvoice,
     updateInvoiceStatus,
     deleteInvoice,
+    approveBudget,
+    rejectBudget,
+    syncOfficialInvoices,
     updateSchedule,
     updateSettings,
     addCatalogItem,

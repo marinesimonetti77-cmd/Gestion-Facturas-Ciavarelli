@@ -1,6 +1,7 @@
 import type { CurrencyCode } from '../lib/currency.ts';
 
-export type SurgeryStatus = 'PROGRAMADA' | 'EN_CURSO' | 'REALIZADA' | 'CANCELADA' | 'REPROGRAMADA';
+export type SurgeryStatus = 'PRESUPUESTADO' | 'PROGRAMADA' | 'EN_CURSO' | 'REALIZADA' | 'CANCELADA' | 'REPROGRAMADA';
+export type BudgetStatus = 'PENDIENTE_APROBACION' | 'APROBADO' | 'RECHAZADO' | 'OBSERVADO';
 export type MaterialStatus = 'SOLICITADO' | 'EN_CLINICA' | 'UTILIZADO' | 'DEVUELTO';
 export type InvoiceStatus = 'PENDIENTE' | 'EMITIDA' | 'EN_AUDITORIA' | 'OBSERVADA' | 'COBRADA' | 'VENCIDA';
 
@@ -20,6 +21,7 @@ export interface AttachedDocument {
   registrationNumber: string; // MN / MP
   fileSize?: string;
   fileDataUrl?: string; // data URL for preview/download of uploaded files
+  fileUrl?: string; // direct path to public asset e.g. /assets/aistudio/...
 }
 
 export interface SurgicalMaterial {
@@ -60,7 +62,12 @@ export interface SurgicalCase {
   surgeryDate: string; // YYYY-MM-DD
   surgeryTime?: string; // HH:mm
   estimatedDurationHours?: number;
+  icuDaysEstimated?: number; // Días estimados en UCI
   status: SurgeryStatus;
+  budgetStatus?: BudgetStatus; // Seguimiento de presupuesto
+  budgetSentDate?: string; // YYYY-MM-DD
+  budgetAmount?: number; // Monto de honorarios presupuestados
+  budgetApprovalDate?: string; // YYYY-MM-DD
   materials?: SurgicalMaterial[];
   notes?: string;
   invoiceId?: string;
