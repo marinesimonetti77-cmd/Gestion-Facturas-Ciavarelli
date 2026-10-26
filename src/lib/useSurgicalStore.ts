@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { SurgicalCase, Invoice, AppSettings, SurgeryStatus, InvoiceStatus, MonthlyLiquidationSchedule } from '../types/surgical';
-import { INITIAL_CASES, INITIAL_INVOICES, INITIAL_SETTINGS, INITIAL_MONTHLY_SCHEDULES } from './mockData';
+import { SurgicalCase, Invoice, AppSettings, SurgeryStatus, InvoiceStatus, MonthlyLiquidationSchedule, MedicalCertificate } from '../types/surgical';
+import { INITIAL_CASES, INITIAL_INVOICES, INITIAL_SETTINGS, INITIAL_MONTHLY_SCHEDULES, INITIAL_CERTIFICATES } from './mockData';
 
 // Storage keys versioned to v9 to ensure fresh migration of October invoices and budgets
 const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v9';
 const STORAGE_KEY_INVOICES = 'ciavarelli_hub_invoices_v9';
 const STORAGE_KEY_SETTINGS = 'ciavarelli_hub_settings_v9';
 const STORAGE_KEY_SCHEDULES = 'ciavarelli_hub_schedules_v9';
+const STORAGE_KEY_CERTIFICATES = 'ciavarelli_hub_certificates_v1';
 
 export function useSurgicalStore() {
   const [cases, setCases] = useState<SurgicalCase[]>(() => {
@@ -66,6 +67,26 @@ export function useSurgicalStore() {
       return INITIAL_MONTHLY_SCHEDULES;
     }
   });
+
+  const [certificates, setCertificates] = useState<MedicalCertificate[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
+      if (!saved) return INITIAL_CERTIFICATES;
+      const parsed = JSON.parse(saved);
+      const hasAlex = Array.isArray(parsed) && parsed.some((c: any) => c.patientName?.includes('Alex'));
+      return hasAlex ? parsed : INITIAL_CERTIFICATES;
+    } catch {
+      return INITIAL_CERTIFICATES;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(certificates));
+    } catch (e) {
+      console.error('Failed to save certificates', e);
+    }
+  }, [certificates]);
 
   // Self-healing synchronization: Always guarantee the 3 October invoices exist and reflect pending collection for 20/10
   useEffect(() => {
@@ -267,17 +288,43 @@ export function useSurgicalStore() {
     }));
   };
 
+  const addCertificate = (certData: Omit<MedicalCertificate, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const count = certificates.length + 1;
+    const certNumber = certData.certificateNumber || `CEMET-2026-${String(count).padStart(3, '0')}`;
+    const newCert: MedicalCertificate = {
+      ...certData,
+      id: `cert-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      certificateNumber: certNumber,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setCertificates(prev => [newCert, ...prev]);
+    return newCert;
+  };
+
+  const updateCertificate = (id: string, updates: Partial<MedicalCertificate>) => {
+    setCertificates(prev =>
+      prev.map(c => (c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c))
+    );
+  };
+
+  const deleteCertificate = (id: string) => {
+    setCertificates(prev => prev.filter(c => c.id !== id));
+  };
+
   // Official Invoices & Schedules Manual Synchronization
   const syncOfficialInvoices = () => {
     setCases(INITIAL_CASES);
     setInvoices(INITIAL_INVOICES);
     setSchedules(INITIAL_MONTHLY_SCHEDULES);
     setSettings(INITIAL_SETTINGS);
+    setCertificates(INITIAL_CERTIFICATES);
     try {
       localStorage.setItem(STORAGE_KEY_CASES, JSON.stringify(INITIAL_CASES));
       localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(INITIAL_INVOICES));
       localStorage.setItem(STORAGE_KEY_SCHEDULES, JSON.stringify(INITIAL_MONTHLY_SCHEDULES));
       localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(INITIAL_SETTINGS));
+      localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(INITIAL_CERTIFICATES));
     } catch (e) {
       console.error(e);
     }
@@ -326,6 +373,7 @@ export function useSurgicalStore() {
     invoices,
     settings,
     schedules,
+    certificates,
     addCase,
     updateCase,
     updateCaseStatus,
@@ -343,5 +391,8 @@ export function useSurgicalStore() {
     removeCatalogItem,
     resetToDemoData,
     createInvoiceForCase,
+    addCertificate,
+    updateCertificate,
+    deleteCertificate,
   };
 }

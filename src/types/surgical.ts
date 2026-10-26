@@ -142,3 +142,39 @@ export interface AppSettings {
   insurances: string[];
   specialties: string[];
 }
+
+export type CertificateType =
+  | 'RECETA_FARMACOLOGICA'
+  | 'REPOSO_LABORAL'
+  | 'APTITUD_QUIRURGICA'
+  | 'INDICACION_QUIRURGICA'
+  | 'ALTA_MEDICA'
+  | 'CONSTANCIA_ATENCION';
+
+export interface MedicalCertificate {
+  id: string;
+  certificateNumber?: string;
+  type: CertificateType;
+  issueDate: string; // YYYY-MM-DD
+  validFromDate: string; // YYYY-MM-DD
+  patientName: string;
+  patientDni: string;
+  patientBirthDate?: string;
+  patientAge?: string;
+  patientGender?: 'M' | 'F' | 'OTRO' | '';
+  insuranceProvider: string;
+  insuranceAffiliateNumber: string;
+  diagnosis: string;
+  rpText: string; // Contenido Rp./ (Lado izquierdo)
+  indicationsText: string; // Contenido Indicaciones (Lado derecho)
+  doctorName: string;
+  doctorSpecialty: string;
+  provincialLicense: string;
+  nationalLicense: string;
+  licenseType?: 'PROVINCIAL' | 'NACIONAL';
+  institution: string; // CEMET
+  includeSignature: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}

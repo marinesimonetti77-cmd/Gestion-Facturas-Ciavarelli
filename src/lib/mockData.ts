@@ -1087,3 +1087,70 @@ export const INITIAL_MONTHLY_SCHEDULES: MonthlyLiquidationSchedule[] = [
     notes: 'Castro Susana · Derivación biliodigestiva de alta complejidad (3 meses desde cirugía 04/09)',
   },
 ];
+
+export const INITIAL_CERTIFICATES = [
+  {
+    id: 'cert-cemet-001',
+    certificateNumber: 'CEMET-2026-088',
+    type: 'REPOSO_LABORAL' as const,
+    issueDate: '2026-10-23',
+    validFromDate: '2026-10-23',
+    patientName: 'Alex Ezequiel Rojas',
+    patientDni: '45.922.096',
+    patientBirthDate: '02/05/2004',
+    patientAge: '22 años',
+    patientGender: 'M' as const,
+    insuranceProvider: 'Hominis Vita +',
+    insuranceAffiliateNumber: '2457689-00',
+    diagnosis: 'Asistencia en el día de la fecha - Reposo y tratamiento',
+    rpText: `El portador de la presente fue asistido en el día de la fecha , debiendo continuar con reposo , tratamiento y estudios por un lapso de 15 días.`,
+    indicationsText: `El portador de la presente fue asistido en el día de la fecha , debiendo continuar con reposo , tratamiento y estudios por un lapso de 15 días.`,
+    doctorName: 'Dr. Miguel Angel Ciavarelli',
+    doctorSpecialty: 'Cirugía Gral',
+    provincialLicense: '440703',
+    nationalLicense: '70212',
+    licenseType: 'NACIONAL' as const,
+    institution: 'CEMET - Centro de Metástasis Hepáticas',
+    includeSignature: true,
+    notes: 'Certificado oficial emitido para Hominis Vita +.',
+    createdAt: '2026-10-23T10:00:00Z',
+    updatedAt: '2026-10-23T10:00:00Z',
+  },
+  {
+    id: 'cert-cemet-002',
+    certificateNumber: 'CEMET-2026-089',
+    type: 'RECETA_FARMACOLOGICA' as const,
+    issueDate: '2026-10-26',
+    validFromDate: '2026-10-26',
+    patientName: 'Plantilla Modelo Oficial CEMET',
+    patientDni: '',
+    patientBirthDate: '',
+    patientAge: '',
+    patientGender: '' as const,
+    insuranceProvider: '',
+    insuranceAffiliateNumber: '',
+    diagnosis: 'Post-operatorio Cirugía Hepatobiliopancreática',
+    rpText: `1. Ketorolac 10 mg comp.
+   Tomar 1 comp. cada 8 horas si presenta dolor (máx 5 días).
+
+2. Paracetamol 1 g comp.
+   Tomar 1 comp. cada 8 horas de rescate.
+
+3. Pantoprazol 40 mg comp.
+   Tomar 1 comp. diario en ayunas por 14 días.`,
+    indicationsText: `• Reposo físico relativo en domicilio (no realizar esfuerzos pesados).
+• Dieta hepatoprotectora baja en grasas.
+• Curación plana diaria de heridas con antiséptico.
+• Retiro de puntos y control post-quirúrgico en consultorio CEMET.`,
+    doctorName: 'Dr. Miguel Angel Ciavarelli',
+    doctorSpecialty: 'Cirugía Hepatobilio Pancreática',
+    provincialLicense: '440703',
+    nationalLicense: '70212',
+    licenseType: 'PROVINCIAL' as const,
+    institution: 'CEMET - Centro de Metástasis Hepáticas',
+    includeSignature: true,
+    notes: 'Plantilla modelo oficial lista para duplicar o imprimir.',
+    createdAt: '2026-10-26T08:30:00Z',
+    updatedAt: '2026-10-26T08:30:00Z',
+  },
+];

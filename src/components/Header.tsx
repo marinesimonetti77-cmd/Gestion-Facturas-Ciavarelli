@@ -14,14 +14,15 @@ import {
   FileCheck,
   RefreshCw,
   LogOut,
+  FileSignature,
 } from 'lucide-react';
 import { FinancialMetrics, SurgeryMetrics } from '../lib/surgicalLogic';
 import { formatCurrency, CurrencyCode } from '../lib/currency';
 import { AppUser } from '../types/auth';
 
 interface HeaderProps {
-  activeTab: 'calendar' | 'cases' | 'budgets' | 'invoices' | 'analytics' | 'sheets' | 'config';
-  setActiveTab: (tab: 'calendar' | 'cases' | 'budgets' | 'invoices' | 'analytics' | 'sheets' | 'config') => void;
+  activeTab: 'calendar' | 'cases' | 'budgets' | 'invoices' | 'certificates' | 'analytics' | 'sheets' | 'config';
+  setActiveTab: (tab: 'calendar' | 'cases' | 'budgets' | 'invoices' | 'certificates' | 'analytics' | 'sheets' | 'config') => void;
   finMetrics: FinancialMetrics;
   surgMetrics: SurgeryMetrics;
   currency: CurrencyCode;
@@ -260,6 +261,21 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Facturación & Liquidaciones</span>
               <span className="text-xs bg-slate-900/60 px-1.5 py-0.5 rounded-full font-mono">
                 {finMetrics.invoicesCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('certificates')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors shrink-0 cursor-pointer ${
+                activeTab === 'certificates'
+                  ? 'bg-cyan-600 text-white shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <FileSignature className="w-4 h-4 text-cyan-300" />
+              <span>Certificados & Recetas</span>
+              <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-800/40 px-1.5 py-0.2 rounded-full font-bold">
+                CEMET
               </span>
             </button>
 

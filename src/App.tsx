@@ -13,6 +13,7 @@ import { InvoiceEditModal } from './components/InvoiceEditModal';
 import { AIChatBox } from './components/AIChatBox';
 import { DocumentViewerModal } from './components/DocumentViewerModal';
 import { SurgicalBudgetsView } from './components/SurgicalBudgetsView';
+import { CertificatesView } from './components/CertificatesView';
 import { LoginScreen } from './components/LoginScreen';
 import { useAuth } from './lib/useAuth';
 import { SurgicalCase, Invoice, AttachedDocument } from './types/surgical';
@@ -23,6 +24,7 @@ export default function App() {
     invoices,
     settings,
     schedules,
+    certificates,
     addCase,
     updateCase,
     updateCaseStatus,
@@ -40,6 +42,9 @@ export default function App() {
     approveBudget,
     rejectBudget,
     syncOfficialInvoices,
+    addCertificate,
+    updateCertificate,
+    deleteCertificate,
   } = useSurgicalStore();
 
   const {
@@ -56,7 +61,7 @@ export default function App() {
   } = useAuth();
 
   // Active navigation tab (default to the Calendario de Cobros requested by the user!)
-  const [activeTab, setActiveTab] = useState<'calendar' | 'cases' | 'budgets' | 'invoices' | 'analytics' | 'sheets' | 'config'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'cases' | 'budgets' | 'invoices' | 'certificates' | 'analytics' | 'sheets' | 'config'>('calendar');
 
   // Modal states
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
@@ -312,6 +317,19 @@ export default function App() {
           />
         )}
 
+        {/* TAB: Certificados & Recetario Oficial CEMET */}
+        {activeTab === 'certificates' && (
+          <CertificatesView
+            certificates={certificates}
+            cases={cases}
+            insurances={settings.insurances}
+            onAddCertificate={addCertificate}
+            onUpdateCertificate={updateCertificate}
+            onDeleteCertificate={deleteCertificate}
+            showToast={showToast}
+          />
+        )}
+
         {/* TAB 4: Métricas */}
         {activeTab === 'analytics' && (
           <AnalyticsView
@@ -396,6 +414,8 @@ export default function App() {
           <button onClick={() => setActiveTab('budgets')} className="hover:text-purple-400 transition cursor-pointer">Presupuestos Qx</button>
           <span>•</span>
           <button onClick={() => setActiveTab('invoices')} className="hover:text-emerald-400 transition cursor-pointer">Facturación</button>
+          <span>•</span>
+          <button onClick={() => setActiveTab('certificates')} className="hover:text-cyan-300 font-semibold transition cursor-pointer text-cyan-400">Certificados & Recetas CEMET</button>
           <span>•</span>
           <button
             onClick={() => setActiveTab('config')}
