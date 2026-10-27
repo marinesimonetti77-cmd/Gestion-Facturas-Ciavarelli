@@ -114,7 +114,7 @@ export const CertificatesView: React.FC<CertificatesViewProps> = ({
   };
 
   // Quick Clinical Templates
-  const handleApplyTemplate = (templateType: 'REPOSO' | 'RECETA' | 'ALTA' | 'INDICACION' | 'APTO') => {
+  const handleApplyTemplate = (templateType: 'REPOSO' | 'RECETA' | 'ALTA' | 'INDICACION' | 'APTO' | 'ROJAS_ASISTENCIA') => {
     const pName = formData.patientName || 'El paciente';
     const diag = formData.diagnosis || 'Post-operatorio de Cirugía Abdominal / Hepatobiliopancreática';
 
@@ -1055,8 +1055,12 @@ Válido para presentación ante obra social, sanatorio o ámbito laboral.`;
                       <div className="font-bold text-[12px] text-slate-900">
                         Médico: {currentDisplayCert?.doctorName || 'Dr. Miguel Angel Ciavarelli'}
                       </div>
-                      <div>Especialidad: {currentDisplayCert?.doctorSpecialty || 'Cirugía Hepatobilio Pancreática'}</div>
-                      <div>Matrícula Prov.: {currentDisplayCert?.provincialLicense || '440703'}</div>
+                      <div>Especialidad: {currentDisplayCert?.doctorSpecialty || 'Cirugía Gral'}</div>
+                      {currentDisplayCert?.licenseType === 'NACIONAL' ? (
+                        <div>Matrícula Nac.: {currentDisplayCert?.nationalLicense || '70212'}</div>
+                      ) : (
+                        <div>Matrícula Prov.: {currentDisplayCert?.provincialLicense || '440703'}</div>
+                      )}
                       <div className="text-[10px] text-slate-500 mt-1 font-mono">
                         Válida desde: {currentDisplayCert?.validFromDate || currentDisplayCert?.issueDate || '23/10/2026'}
                       </div>
@@ -1143,8 +1147,12 @@ Válido para presentación ante obra social, sanatorio o ámbito laboral.`;
                       <div className="font-bold text-[12px] text-slate-900">
                         Médico: {currentDisplayCert?.doctorName || 'Dr. Miguel Angel Ciavarelli'}
                       </div>
-                      <div>Especialidad: {currentDisplayCert?.doctorSpecialty || 'Cirugía Hepatobilio Pancreática'}</div>
-                      <div>Matrícula Prov.: {currentDisplayCert?.provincialLicense || '440703'}</div>
+                      <div>Especialidad: {currentDisplayCert?.doctorSpecialty || 'Cirugía Gral'}</div>
+                      {currentDisplayCert?.licenseType === 'NACIONAL' ? (
+                        <div>Matrícula Nac.: {currentDisplayCert?.nationalLicense || '70212'}</div>
+                      ) : (
+                        <div>Matrícula Prov.: {currentDisplayCert?.provincialLicense || '440703'}</div>
+                      )}
                       <div className="text-[10px] text-slate-500 mt-1 font-mono">
                         Válida desde: {currentDisplayCert?.validFromDate || currentDisplayCert?.issueDate || '23/10/2026'}
                       </div>
