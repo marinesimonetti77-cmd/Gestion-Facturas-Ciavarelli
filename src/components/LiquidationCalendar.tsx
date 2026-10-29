@@ -16,7 +16,7 @@ import {
   FileText,
   RefreshCw,
 } from 'lucide-react';
-import { MonthlyLiquidationSchedule, SurgicalCase, Invoice, AttachedDocument } from '../types/surgical';
+import { MonthlyLiquidationSchedule, SurgicalCase, Invoice, InvoiceStatus, AttachedDocument } from '../types/surgical';
 import { formatCurrency, CurrencyCode } from '../lib/currency';
 import { getCaseLiquidationStatus } from '../lib/surgicalLogic';
 
@@ -29,6 +29,7 @@ interface LiquidationCalendarProps {
   onSelectCase: (c: SurgicalCase) => void;
   onViewDocument?: (doc: AttachedDocument, c?: SurgicalCase, inv?: Invoice) => void;
   onSyncInvoices?: () => void;
+  onUpdateInvoiceStatus?: (id: string, status: InvoiceStatus) => void;
 }
 
 export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
@@ -40,6 +41,7 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
   onSelectCase,
   onViewDocument,
   onSyncInvoices,
+  onUpdateInvoiceStatus,
 }) => {
   const [editingMonthKey, setEditingMonthKey] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<MonthlyLiquidationSchedule>>({});
@@ -65,23 +67,31 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
   const totalEstimatedLiquidations = schedules.reduce((acc, s) => acc + s.estimatedLiquidationsAmount, 0);
 
   // October specific calculation
-  const octPendingInvoices = invoices.filter(
+  const octInvoices = invoices.filter(
     i =>
-      i.status !== 'COBRADA' &&
-      (i.expectedCollectionDate?.includes('2026-10') ||
-        i.issueDate?.includes('2026-10') ||
-        i.invoiceNumber?.includes('293') ||
-        i.invoiceNumber?.includes('294') ||
-        i.invoiceNumber?.includes('295') ||
-        i.id === 'inv-afip-293' ||
-        i.id === 'inv-afip-294' ||
-        i.id === 'inv-afip-295')
+      i.expectedCollectionDate?.includes('2026-10') ||
+      i.issueDate?.includes('2026-10') ||
+      i.invoiceNumber?.includes('293') ||
+      i.invoiceNumber?.includes('294') ||
+      i.invoiceNumber?.includes('295') ||
+      i.id === 'inv-afip-293' ||
+      i.id === 'inv-afip-294' ||
+      i.id === 'inv-afip-295'
   );
-  const octPendingTotal =
-    octPendingInvoices.reduce(
-      (acc, i) => acc + (Number(i.pendingAmount) || Number(i.totalAmount) || 0),
-      0
-    ) || 762210.0;
+  const octPendingInvoices = octInvoices.filter(i => i.status !== 'COBRADA');
+  const octPendingTotal = octPendingInvoices.reduce(
+    (acc, i) => acc + (typeof i.pendingAmount === 'number' ? i.pendingAmount : Number(i.totalAmount) || 0),
+    0
+  );
+  const octCollectedInvoices = octInvoices.filter(i => i.status === 'COBRADA');
+  const octCollectedTotal = octCollectedInvoices.reduce(
+    (acc, i) => acc + (Number(i.collectedAmount) || Number(i.totalAmount) || 0),
+    0
+  );
+
+  const inv293 = invoices.find(i => i.id === 'inv-afip-293' || i.invoiceNumber?.includes('293'));
+  const inv294 = invoices.find(i => i.id === 'inv-afip-294' || i.invoiceNumber?.includes('294'));
+  const inv295 = invoices.find(i => i.id === 'inv-afip-295' || i.invoiceNumber?.includes('295'));
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -139,18 +149,28 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
           <span className="text-[10px] text-emerald-500 mt-1 block">Julio, Agosto y Septiembre liquidados</span>
         </div>
 
-        <div className="bg-gradient-to-b from-amber-950/30 to-slate-900 border border-amber-500/70 rounded-xl p-4 shadow-md relative overflow-hidden">
+        <div className={`rounded-xl p-4 shadow-md relative overflow-hidden border ${
+          octPendingTotal === 0
+            ? 'bg-gradient-to-b from-emerald-950/40 to-slate-900 border-emerald-500/70'
+            : 'bg-gradient-to-b from-amber-950/30 to-slate-900 border-amber-500/70'
+        }`}>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-amber-300 font-bold block">Pendiente de Cobro · Octubre</span>
-            <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded font-mono">
-              Vto 20/10
+            <span className={`text-[11px] font-bold block ${octPendingTotal === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+              Pendiente de Cobro · Octubre
+            </span>
+            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded font-mono ${
+              octPendingTotal === 0 ? 'bg-emerald-500 text-slate-950' : 'bg-amber-500 text-slate-950'
+            }`}>
+              {octPendingTotal === 0 ? 'AL DÍA ✓' : 'Vto 20/10'}
             </span>
           </div>
-          <span className="text-xl font-black text-amber-300 font-mono mt-1 block">
+          <span className={`text-xl font-black font-mono mt-1 block ${octPendingTotal === 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
             {formatCurrency(octPendingTotal, currency)}
           </span>
-          <span className="text-[10px] text-amber-200/90 mt-1 block font-medium">
-            3 Facturas: Fac 293 ($ 311.610) + Fac 294 ($ 397.800) + Fac 295 ($ 52.800)
+          <span className={`text-[10px] mt-1 block font-medium ${octPendingTotal === 0 ? 'text-emerald-200/90' : 'text-amber-200/90'}`}>
+            {octPendingTotal === 0
+              ? `✓ Cobrado: ${formatCurrency(octCollectedTotal, currency)} (100% cobrado)`
+              : `${octPendingInvoices.length} facturas pendientes de cobro`}
           </span>
         </div>
 
@@ -172,26 +192,51 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
       </div>
 
       {/* BANNER DESTACADO: Vencimiento de Cobro Día 20 de Octubre */}
-      <div className="bg-gradient-to-r from-amber-950/80 via-slate-900 to-slate-900 border-2 border-amber-500/90 rounded-2xl p-5 shadow-xl space-y-4">
+      <div className={`border-2 rounded-2xl p-5 shadow-xl space-y-4 ${
+        octPendingTotal === 0
+          ? 'bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border-emerald-500/80'
+          : 'bg-gradient-to-r from-amber-950/80 via-slate-900 to-slate-900 border-amber-500/90'
+      }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="p-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 shrink-0 shadow-sm">
-              <Clock className="w-7 h-7 text-amber-400 animate-pulse" />
+            <div className={`p-3 rounded-xl border shrink-0 shadow-sm ${
+              octPendingTotal === 0
+                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                : 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+            }`}>
+              {octPendingTotal === 0 ? (
+                <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+              ) : (
+                <Clock className="w-7 h-7 text-amber-400 animate-pulse" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded font-mono">
-                  🚨 COBRO PENDIENTE DÍA 20
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded font-mono ${
+                  octPendingTotal === 0 ? 'bg-emerald-500 text-slate-950' : 'bg-amber-500 text-slate-950'
+                }`}>
+                  {octPendingTotal === 0 ? '✓ AL DÍA · COBRANZA COMPLETA' : '🚨 COBRO PENDIENTE DÍA 20'}
                 </span>
-                <span className="text-xs text-amber-200 font-bold">
+                <span className={`text-xs font-bold ${octPendingTotal === 0 ? 'text-emerald-200' : 'text-amber-200'}`}>
                   Mes en Curso: Octubre 2026 (20/10/2026)
                 </span>
               </div>
               <h3 className="text-lg font-black text-white mt-1">
-                Pendiente de Cobro para este 20/10/2026:{' '}
-                <span className="text-amber-300 font-mono text-xl font-black">
-                  {formatCurrency(octPendingTotal, currency)}
-                </span>
+                {octPendingTotal === 0 ? (
+                  <>
+                    Todas las facturas de Octubre han sido cobradas:{' '}
+                    <span className="text-emerald-400 font-mono text-xl font-black">
+                      {formatCurrency(octCollectedTotal, currency)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Pendiente de Cobro para este 20/10/2026:{' '}
+                    <span className="text-amber-300 font-mono text-xl font-black">
+                      {formatCurrency(octPendingTotal, currency)}
+                    </span>
+                  </>
+                )}
               </h3>
               <p className="text-xs text-slate-300 mt-0.5">
                 Facturas A oficiales emitidas ante AFIP/ARCA vinculadas a prestaciones de Cirugía General y liquidaciones sanatoriales:
@@ -203,15 +248,31 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
         {/* Detalle de las 3 Facturas de Octubre */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
           {/* Factura 293 - García Julio */}
-          <div className="bg-slate-950/90 border border-amber-500/60 rounded-xl p-4 space-y-2.5 shadow-sm hover:border-amber-400 transition flex flex-col justify-between">
+          <div className={`border rounded-xl p-4 space-y-2.5 shadow-sm transition flex flex-col justify-between ${
+            inv293?.status === 'COBRADA'
+              ? 'bg-slate-950/90 border-emerald-500/50'
+              : 'bg-slate-950/90 border-amber-500/60 hover:border-amber-400'
+          }`}>
             <div className="space-y-1.5">
               <div className="flex items-start justify-between gap-1.5">
                 <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
                   Factura A N° 00003-00000293
                 </span>
-                <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded shrink-0">
-                  {formatCurrency(311610.0, currency)}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {inv293?.status === 'COBRADA' ? (
+                    <span className="text-[10px] font-bold font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      <span>COBRADA</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold font-mono text-amber-300 bg-amber-950/90 border border-amber-600 px-2 py-0.5 rounded">
+                      PENDIENTE
+                    </span>
+                  )}
+                  <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded">
+                    {formatCurrency(311610.0, currency)}
+                  </span>
+                </div>
               </div>
               <h4 className="text-xs font-bold text-white mt-1 leading-snug">
                 GARCIA JULIO GUILLERMO
@@ -230,21 +291,44 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
                 <span className="text-slate-400">IVA 10,5%:</span>
                 <span className="font-mono text-white">$ 29.610,00</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold text-amber-300">
-                <span>Vto. para el Cobro:</span>
-                <span className="font-mono">20/10/2026</span>
+              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
+                <span className={inv293?.status === 'COBRADA' ? 'text-emerald-400' : 'text-amber-300'}>
+                  {inv293?.status === 'COBRADA' ? 'Cobrada:' : 'Vto. para el Cobro:'}
+                </span>
+                <span className={`font-mono ${inv293?.status === 'COBRADA' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {inv293?.status === 'COBRADA' ? (inv293.actualCollectionDate || '20/10/2026') : '20/10/2026'}
+                </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1 text-[11px]">
+            <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
               <span className="text-emerald-400 font-semibold text-[10px]">CAE: 86401928374619</span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {onUpdateInvoiceStatus && inv293 && (
+                  inv293.status === 'COBRADA' ? (
+                    <button
+                      onClick={() => onUpdateInvoiceStatus(inv293.id, 'PENDIENTE')}
+                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition"
+                      title="Revertir estado a pendiente"
+                    >
+                      Deshacer
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onUpdateInvoiceStatus(inv293.id, 'COBRADA')}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow-xs transition flex items-center gap-1"
+                      title="Registrar cobro de esta factura"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Cobrada ✓</span>
+                    </button>
+                  )
+                )}
                 {onViewDocument && (
                   <button
                     onClick={() => {
-                      const inv = invoices.find(i => i.id === 'inv-afip-293');
-                      if (inv && inv.attachedDocuments?.[0]) {
-                        onViewDocument(inv.attachedDocuments[0], undefined, inv);
+                      if (inv293 && inv293.attachedDocuments?.[0]) {
+                        onViewDocument(inv293.attachedDocuments[0], undefined, inv293);
                       }
                     }}
                     className="px-2 py-0.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-200 rounded text-[11px] font-semibold border border-cyan-700/70 transition"
@@ -255,9 +339,8 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
                 {onViewDocument && (
                   <button
                     onClick={() => {
-                      const inv = invoices.find(i => i.id === 'inv-afip-293');
-                      if (inv && inv.attachedDocuments?.[1]) {
-                        onViewDocument(inv.attachedDocuments[1], undefined, inv);
+                      if (inv293 && inv293.attachedDocuments?.[1]) {
+                        onViewDocument(inv293.attachedDocuments[1], undefined, inv293);
                       }
                     }}
                     className="px-2 py-0.5 bg-amber-950/80 hover:bg-amber-900 text-amber-200 rounded text-[11px] font-semibold border border-amber-700/70 transition"
@@ -270,15 +353,31 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
           </div>
 
           {/* Factura 294 - Rodríguez Rocío */}
-          <div className="bg-slate-950/90 border border-amber-500/60 rounded-xl p-4 space-y-2.5 shadow-sm hover:border-amber-400 transition flex flex-col justify-between">
+          <div className={`border rounded-xl p-4 space-y-2.5 shadow-sm transition flex flex-col justify-between ${
+            inv294?.status === 'COBRADA'
+              ? 'bg-slate-950/90 border-emerald-500/50'
+              : 'bg-slate-950/90 border-amber-500/60 hover:border-amber-400'
+          }`}>
             <div className="space-y-1.5">
               <div className="flex items-start justify-between gap-1.5">
                 <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
                   Factura A N° 00003-00000294
                 </span>
-                <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded shrink-0">
-                  {formatCurrency(397800.0, currency)}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {inv294?.status === 'COBRADA' ? (
+                    <span className="text-[10px] font-bold font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      <span>COBRADA</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold font-mono text-amber-300 bg-amber-950/90 border border-amber-600 px-2 py-0.5 rounded">
+                      PENDIENTE
+                    </span>
+                  )}
+                  <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded">
+                    {formatCurrency(397800.0, currency)}
+                  </span>
+                </div>
               </div>
               <h4 className="text-xs font-bold text-white mt-1 leading-snug">
                 RODRIGUEZ ROCIO BEATRIZ
@@ -297,21 +396,44 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
                 <span className="text-slate-400">IVA 10,5%:</span>
                 <span className="font-mono text-white">$ 37.800,00</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold text-amber-300">
-                <span>Vto. para el Cobro:</span>
-                <span className="font-mono">20/10/2026</span>
+              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
+                <span className={inv294?.status === 'COBRADA' ? 'text-emerald-400' : 'text-amber-300'}>
+                  {inv294?.status === 'COBRADA' ? 'Cobrada:' : 'Vto. para el Cobro:'}
+                </span>
+                <span className={`font-mono ${inv294?.status === 'COBRADA' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {inv294?.status === 'COBRADA' ? (inv294.actualCollectionDate || '20/10/2026') : '20/10/2026'}
+                </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1 text-[11px]">
+            <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
               <span className="text-emerald-400 font-semibold text-[10px]">CAE: 86401928374620</span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {onUpdateInvoiceStatus && inv294 && (
+                  inv294.status === 'COBRADA' ? (
+                    <button
+                      onClick={() => onUpdateInvoiceStatus(inv294.id, 'PENDIENTE')}
+                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition"
+                      title="Revertir estado a pendiente"
+                    >
+                      Deshacer
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onUpdateInvoiceStatus(inv294.id, 'COBRADA')}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow-xs transition flex items-center gap-1"
+                      title="Registrar cobro de esta factura"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Cobrada ✓</span>
+                    </button>
+                  )
+                )}
                 {onViewDocument && (
                   <button
                     onClick={() => {
-                      const inv = invoices.find(i => i.id === 'inv-afip-294');
-                      if (inv && inv.attachedDocuments?.[0]) {
-                        onViewDocument(inv.attachedDocuments[0], undefined, inv);
+                      if (inv294 && inv294.attachedDocuments?.[0]) {
+                        onViewDocument(inv294.attachedDocuments[0], undefined, inv294);
                       }
                     }}
                     className="px-2 py-0.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-200 rounded text-[11px] font-semibold border border-cyan-700/70 transition"
@@ -322,9 +444,8 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
                 {onViewDocument && (
                   <button
                     onClick={() => {
-                      const inv = invoices.find(i => i.id === 'inv-afip-294');
-                      if (inv && inv.attachedDocuments?.[1]) {
-                        onViewDocument(inv.attachedDocuments[1], undefined, inv);
+                      if (inv294 && inv294.attachedDocuments?.[1]) {
+                        onViewDocument(inv294.attachedDocuments[1], undefined, inv294);
                       }
                     }}
                     className="px-2 py-0.5 bg-amber-950/80 hover:bg-amber-900 text-amber-200 rounded text-[11px] font-semibold border border-amber-700/70 transition"
@@ -337,15 +458,31 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
           </div>
 
           {/* Factura 295 - Da Cunha María */}
-          <div className="bg-slate-950/90 border border-amber-500/60 rounded-xl p-4 space-y-2.5 shadow-sm hover:border-amber-400 transition flex flex-col justify-between">
+          <div className={`border rounded-xl p-4 space-y-2.5 shadow-sm transition flex flex-col justify-between ${
+            inv295?.status === 'COBRADA'
+              ? 'bg-slate-950/90 border-emerald-500/50'
+              : 'bg-slate-950/90 border-amber-500/60 hover:border-amber-400'
+          }`}>
             <div className="space-y-1.5">
               <div className="flex items-start justify-between gap-1.5">
                 <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
                   Factura A N° 00003-00000295
                 </span>
-                <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded shrink-0">
-                  {formatCurrency(52800.0, currency)}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {inv295?.status === 'COBRADA' ? (
+                    <span className="text-[10px] font-bold font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      <span>COBRADA</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold font-mono text-amber-300 bg-amber-950/90 border border-amber-600 px-2 py-0.5 rounded">
+                      PENDIENTE
+                    </span>
+                  )}
+                  <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded shrink-0">
+                    {formatCurrency(52800.0, currency)}
+                  </span>
+                </div>
               </div>
               <h4 className="text-xs font-bold text-white mt-1 leading-snug">
                 DA CUNHA MENDEZ MARIA SOLEDAD
@@ -364,21 +501,44 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
                 <span className="text-slate-400">Importe Exento:</span>
                 <span className="font-mono text-white">$ 52.800,00</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold text-amber-300">
-                <span>Vto. para el Cobro:</span>
-                <span className="font-mono">20/10/2026</span>
+              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
+                <span className={inv295?.status === 'COBRADA' ? 'text-emerald-400' : 'text-amber-300'}>
+                  {inv295?.status === 'COBRADA' ? 'Cobrada:' : 'Vto. para el Cobro:'}
+                </span>
+                <span className={`font-mono ${inv295?.status === 'COBRADA' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {inv295?.status === 'COBRADA' ? (inv295.actualCollectionDate || '20/10/2026') : '20/10/2026'}
+                </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1 text-[11px]">
+            <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
               <span className="text-emerald-400 font-semibold text-[10px]">CAE: 86401929481723</span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {onUpdateInvoiceStatus && inv295 && (
+                  inv295.status === 'COBRADA' ? (
+                    <button
+                      onClick={() => onUpdateInvoiceStatus(inv295.id, 'PENDIENTE')}
+                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition"
+                      title="Revertir estado a pendiente"
+                    >
+                      Deshacer
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onUpdateInvoiceStatus(inv295.id, 'COBRADA')}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow-xs transition flex items-center gap-1"
+                      title="Registrar cobro de esta factura"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Cobrada ✓</span>
+                    </button>
+                  )
+                )}
                 {onViewDocument && (
                   <button
                     onClick={() => {
-                      const inv = invoices.find(i => i.id === 'inv-afip-295');
-                      if (inv && inv.attachedDocuments?.[0]) {
-                        onViewDocument(inv.attachedDocuments[0], undefined, inv);
+                      if (inv295 && inv295.attachedDocuments?.[0]) {
+                        onViewDocument(inv295.attachedDocuments[0], undefined, inv295);
                       }
                     }}
                     className="px-2 py-0.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-200 rounded text-[11px] font-semibold border border-cyan-700/70 transition"
@@ -389,9 +549,8 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
                 {onViewDocument && (
                   <button
                     onClick={() => {
-                      const inv = invoices.find(i => i.id === 'inv-afip-295');
-                      if (inv && inv.attachedDocuments?.[1]) {
-                        onViewDocument(inv.attachedDocuments[1], undefined, inv);
+                      if (inv295 && inv295.attachedDocuments?.[1]) {
+                        onViewDocument(inv295.attachedDocuments[1], undefined, inv295);
                       }
                     }}
                     className="px-2 py-0.5 bg-amber-950/80 hover:bg-amber-900 text-amber-200 rounded text-[11px] font-semibold border border-amber-700/70 transition"

@@ -605,21 +605,39 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
                         </div>
                       </td>
 
-                      {/* Status (INLINE EDITABLE DROPDOWN) */}
+                      {/* Status (INLINE EDITABLE DROPDOWN & QUICK COBRAR BUTTON) */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <select
-                          value={inv.status}
-                          onChange={e => onUpdateStatus(inv.id, e.target.value as InvoiceStatus)}
-                          className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer ${getStatusBadgeClass(inv.status)}`}
-                          title="Haga clic para cambiar el estado de la liquidación"
-                        >
-                          <option value="PENDIENTE">PENDIENTE</option>
-                          <option value="EMITIDA">EMITIDA</option>
-                          <option value="EN_AUDITORIA">EN AUDITORÍA</option>
-                          <option value="OBSERVADA">OBSERVADA</option>
-                          <option value="COBRADA">COBRADA</option>
-                          <option value="VENCIDA">VENCIDA</option>
-                        </select>
+                        <div className="flex flex-col gap-1 items-start">
+                          <select
+                            value={inv.status}
+                            onChange={e => onUpdateStatus(inv.id, e.target.value as InvoiceStatus)}
+                            className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer ${getStatusBadgeClass(inv.status)}`}
+                            title="Haga clic para cambiar el estado de la liquidación"
+                          >
+                            <option value="PENDIENTE">PENDIENTE</option>
+                            <option value="EMITIDA">EMITIDA</option>
+                            <option value="EN_AUDITORIA">EN AUDITORÍA</option>
+                            <option value="OBSERVADA">OBSERVADA</option>
+                            <option value="COBRADA">COBRADA</option>
+                            <option value="VENCIDA">VENCIDA</option>
+                          </select>
+                          {inv.status !== 'COBRADA' ? (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateStatus(inv.id, 'COBRADA')}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-800 border border-emerald-600/70 px-2 py-0.5 rounded transition shadow-xs"
+                              title="Registrar cobro total de esta factura"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>Cobrar ✓</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>{inv.actualCollectionDate || 'Cobrada'}</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* ARCA Comprobante & Liquidación PDF */}

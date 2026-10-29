@@ -39,19 +39,12 @@ export function useSurgicalStore() {
       const saved = localStorage.getItem(STORAGE_KEY_INVOICES);
       if (!saved) return INITIAL_INVOICES;
       const parsed: Invoice[] = JSON.parse(saved);
-      const has293 = parsed.some(i => i.invoiceNumber?.includes('293') || i.id === 'inv-afip-293');
-      const has294 = parsed.some(i => i.invoiceNumber?.includes('294') || i.id === 'inv-afip-294');
-      const has295 = parsed.some(i => i.invoiceNumber?.includes('295') || i.id === 'inv-afip-295');
-      const hasOctoberPending = parsed.some(
-        i =>
-          (i.expectedCollectionDate === '2026-10-20' ||
-            i.issueDate === '2026-10-06' ||
-            i.invoiceNumber?.includes('293') ||
-            i.invoiceNumber?.includes('294') ||
-            i.invoiceNumber?.includes('295')) &&
-          i.status !== 'COBRADA'
-      );
-      return has293 && has294 && has295 && hasOctoberPending ? parsed : INITIAL_INVOICES;
+      if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_INVOICES;
+
+      // Preserve user changes! If an invoice is in parsed, keep its exact status & dates.
+      const existingIds = new Set(parsed.map(i => i.id));
+      const missingInitial = INITIAL_INVOICES.filter(init => !existingIds.has(init.id));
+      return missingInitial.length > 0 ? [...parsed, ...missingInitial] : parsed;
     } catch {
       return INITIAL_INVOICES;
     }
@@ -71,8 +64,7 @@ export function useSurgicalStore() {
       const saved = localStorage.getItem(STORAGE_KEY_SCHEDULES);
       if (!saved) return INITIAL_MONTHLY_SCHEDULES;
       const parsed = JSON.parse(saved);
-      const hasOct = parsed.some((s: any) => s.monthKey === '2026-10' && s.pendingCollection >= 762210);
-      return hasOct ? parsed : INITIAL_MONTHLY_SCHEDULES;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_MONTHLY_SCHEDULES;
     } catch {
       return INITIAL_MONTHLY_SCHEDULES;
     }
@@ -98,28 +90,44 @@ export function useSurgicalStore() {
     }
   }, [certificates]);
 
-  // Self-healing synchronization: Always guarantee the 3 October invoices exist and reflect pending collection for 20/10
+  // Synchronize October monthly liquidation schedule automatically based on invoice collection status
   useEffect(() => {
-    const has293 = invoices.some(i => i.invoiceNumber?.includes('293') || i.id === 'inv-afip-293');
-    const has294 = invoices.some(i => i.invoiceNumber?.includes('294') || i.id === 'inv-afip-294');
-    const has295 = invoices.some(i => i.invoiceNumber?.includes('295') || i.id === 'inv-afip-295');
-    const hasPendingOct = invoices.some(
+    const octInvs = invoices.filter(
       i =>
-        (i.expectedCollectionDate === '2026-10-20' ||
-          i.issueDate === '2026-10-06' ||
-          i.invoiceNumber?.includes('293') ||
-          i.invoiceNumber?.includes('294') ||
-          i.invoiceNumber?.includes('295')) &&
-        i.status !== 'COBRADA'
+        i.expectedCollectionDate?.includes('2026-10') ||
+        i.issueDate?.includes('2026-10') ||
+        i.invoiceNumber?.includes('293') ||
+        i.invoiceNumber?.includes('294') ||
+        i.invoiceNumber?.includes('295') ||
+        i.id === 'inv-afip-293' ||
+        i.id === 'inv-afip-294' ||
+        i.id === 'inv-afip-295'
     );
+    if (octInvs.length > 0) {
+      const collectedOct = octInvs
+        .filter(i => i.status === 'COBRADA')
+        .reduce((sum, i) => sum + (Number(i.collectedAmount) || Number(i.totalAmount) || 0), 0);
+      const pendingOct = octInvs
+        .filter(i => i.status !== 'COBRADA')
+        .reduce(
+          (sum, i) =>
+            sum + (Number(i.pendingAmount) !== undefined ? Number(i.pendingAmount) : Number(i.totalAmount) || 0),
+          0
+        );
 
-    if (!has293 || !has294 || !has295 || !hasPendingOct) {
-      setInvoices(INITIAL_INVOICES);
-      try {
-        localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(INITIAL_INVOICES));
-      } catch (e) {
-        console.error(e);
-      }
+      setSchedules(prev =>
+        prev.map(s => {
+          if (s.monthKey === '2026-10') {
+            return {
+              ...s,
+              withdrawnCollected: collectedOct,
+              registeredCollections: collectedOct,
+              pendingCollection: pendingOct,
+            };
+          }
+          return s;
+        })
+      );
     }
   }, [invoices]);
 
@@ -228,17 +236,44 @@ export function useSurgicalStore() {
   };
 
   const updateInvoice = (id: string, updates: Partial<Invoice>) => {
-    setInvoices(prev =>
-      prev.map(inv => (inv.id === id ? { ...inv, ...updates, updatedAt: new Date().toISOString() } : inv))
-    );
+    setInvoices(prev => {
+      const updatedList = prev.map(inv => {
+        if (inv.id !== id) return inv;
+        const updated: Invoice = {
+          ...inv,
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (updated.status === 'COBRADA') {
+          updated.collectedAmount = updated.totalAmount;
+          updated.pendingAmount = 0;
+          if (!updated.actualCollectionDate) {
+            updated.actualCollectionDate = new Date().toISOString().split('T')[0];
+          }
+        } else if (updates.status && updates.status !== 'COBRADA' && inv.status === 'COBRADA') {
+          updated.collectedAmount = 0;
+          updated.pendingAmount = updated.totalAmount;
+          updated.actualCollectionDate = undefined;
+        }
+
+        return updated;
+      });
+
+      try {
+        localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(updatedList));
+      } catch (e) {
+        console.error('Failed to save invoices to localStorage', e);
+      }
+      return updatedList;
+    });
   };
 
   const updateInvoiceStatus = (id: string, status: InvoiceStatus) => {
     const nowStr = new Date().toISOString().split('T')[0];
-    const actualCollectionDate = status === 'COBRADA' ? nowStr : undefined;
     updateInvoice(id, {
       status,
-      ...(actualCollectionDate ? { actualCollectionDate } : {}),
+      ...(status === 'COBRADA' ? { actualCollectionDate: nowStr } : { actualCollectionDate: undefined }),
     });
   };
 

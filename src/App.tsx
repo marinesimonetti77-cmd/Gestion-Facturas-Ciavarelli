@@ -225,6 +225,10 @@ export default function App() {
               updateSchedule(monthKey, updates);
               showToast('Mes del calendario actualizado.');
             }}
+            onUpdateInvoiceStatus={(id, status) => {
+              updateInvoiceStatus(id, status);
+              showToast(`Factura marcada como ${status}.`);
+            }}
             onSelectCase={c => {
               setCaseToEdit(c);
               setIsCaseModalOpen(true);
