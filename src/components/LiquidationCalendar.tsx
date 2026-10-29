@@ -495,9 +495,14 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
                     }`}>
                       {c.estimatedSettlementMonth}
                     </span>
-                    <div className="mt-2 text-base font-bold font-mono text-white">
-                      {c.estimatedSettlementAmount ? formatCurrency(c.estimatedSettlementAmount, currency) : '$ 0,00'}
+                    <div className="mt-2 text-base font-bold font-mono text-emerald-400">
+                      {formatCurrency(c.budgetApprovedAmount || c.estimatedSettlementAmount || c.budgetAmount || 0, currency)}
                     </div>
+                    {c.budgetApprovedAmount !== undefined && c.budgetAmount && c.budgetApprovedAmount !== c.budgetAmount && (
+                      <span className="text-[10px] text-amber-300 font-mono block mt-0.5">
+                        Aprobado final (orig: {formatCurrency(c.budgetAmount, currency)})
+                      </span>
+                    )}
                   </div>
                 </div>
 

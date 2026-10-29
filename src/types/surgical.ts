@@ -68,6 +68,11 @@ export interface SurgicalCase {
   budgetSentDate?: string; // YYYY-MM-DD
   budgetAmount?: number; // Monto de honorarios presupuestados
   budgetApprovalDate?: string; // YYYY-MM-DD
+  budgetApprovedAmount?: number; // Monto real aprobado por la obra social/sanatorio
+  budgetDifference?: number; // Diferencia entre lo aprobado y lo presupuestado (aprobado - presupuestado)
+  budgetAdjustmentReason?: string; // Aclaración o motivo de cambio en el valor (ej. autorizado por menor valor según convenio)
+  liquidationDueDate?: string; // Fecha en que se cumplen los 3 meses (90 días) de espera para liquidación
+  isSurgeryCompleted?: boolean; // Indica si la cirugía ya fue efectuada
   materials?: SurgicalMaterial[];
   notes?: string;
   invoiceId?: string;

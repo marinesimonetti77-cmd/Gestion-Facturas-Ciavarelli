@@ -224,7 +224,7 @@ export interface CaseLiquidationAlert {
  * Tracks the 3-month postoperative window from surgery date to settlement and invoicing
  * Regla: Luego de un parte qx a los 3 meses se espera el envío de la liquidación para facturar
  */
-export function getCaseLiquidationStatus(c: SurgicalCase, referenceDate = '2026-10-16'): CaseLiquidationAlert {
+export function getCaseLiquidationStatus(c: SurgicalCase, referenceDate = '2026-10-29'): CaseLiquidationAlert {
   if (c.invoiceId) {
     return {
       stage: 'BILLED',
@@ -255,7 +255,8 @@ export function getCaseLiquidationStatus(c: SurgicalCase, referenceDate = '2026-
 
   const surgeryTime = new Date(c.surgeryDate).getTime();
   const refTime = new Date(referenceDate).getTime();
-  const daysSince = Math.floor((refTime - surgeryTime) / (1000 * 60 * 60 * 24));
+  const rawDays = Math.floor((refTime - surgeryTime) / (1000 * 60 * 60 * 24));
+  const daysSince = Math.max(1, rawDays);
   const monthsSince = Number((daysSince / 30.4).toFixed(1));
 
   const hasLiquidationDoc = Boolean(

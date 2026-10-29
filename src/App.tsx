@@ -276,7 +276,11 @@ export default function App() {
             onNewBudget={handleOpenNewCase}
             onApproveBudget={(caseId, approvalData) => {
               approveBudget(caseId, approvalData);
-              showToast(`Presupuesto aprobado. Fecha de cirugía asignada para el ${approvalData.surgeryDate}.`);
+              showToast(
+                approvalData.isCompleted
+                  ? `Cirugía registrada como REALIZADA. Inició el conteo de 3 meses para la liquidación.`
+                  : `Presupuesto aprobado. Fecha de cirugía asignada para el ${approvalData.surgeryDate}.`
+              );
             }}
             onViewDocument={handleOpenDocument}
             onNavigateToCases={() => setActiveTab('cases')}

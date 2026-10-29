@@ -18,7 +18,17 @@ export function useSurgicalStore() {
       // Ensure it contains real cases and Facundo's budget
       const hasRealCiavarelliCase = parsed.some((c: any) => c.patientName?.includes('Quintana') || c.patientName?.includes('GARCIA'));
       const hasFacundo = parsed.some((c: any) => c.patientName?.includes('Facundo') || c.procedureName?.includes('Hepatectomía'));
-      return hasRealCiavarelliCase && hasFacundo ? parsed : INITIAL_CASES;
+      if (Array.isArray(parsed) && hasRealCiavarelliCase && hasFacundo) {
+        const hasPapasideroReal = parsed.some((c: any) => c.patientName?.includes('Papasidero') && c.budgetApprovedAmount === 900000);
+        if (!hasPapasideroReal) {
+          const papasideroFromInit = INITIAL_CASES.find(c => c.id === 'case-ciav-papasidero');
+          if (papasideroFromInit) {
+            return parsed.map((c: any) => c.id === 'case-ciav-papasidero' ? papasideroFromInit : c);
+          }
+        }
+        return parsed;
+      }
+      return INITIAL_CASES;
     } catch {
       return INITIAL_CASES;
     }
@@ -240,12 +250,51 @@ export function useSurgicalStore() {
   };
 
   // Budget actions
-  const approveBudget = (caseId: string, approvalData: { surgeryDate?: string; surgeryClinic?: string; notes?: string }) => {
+  const approveBudget = (
+    caseId: string,
+    approvalData: {
+      surgeryDate?: string;
+      surgeryTime?: string;
+      surgeryClinic?: string;
+      operatingRoom?: string;
+      notes?: string;
+      budgetApprovedAmount?: number;
+      budgetAdjustmentReason?: string;
+      isCompleted?: boolean;
+    }
+  ) => {
+    const existingCase = cases.find(c => c.id === caseId);
+    const sDate = approvalData.surgeryDate || existingCase?.surgeryDate || new Date().toISOString().split('T')[0];
+    const isCompleted = approvalData.isCompleted ?? false;
+
+    // Calculate 3-month (90 days) settlement estimated date and month label
+    const d = new Date(sDate + 'T12:00:00Z');
+    d.setDate(d.getDate() + 90);
+    const estimatedSettlementMonth = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(d);
+    const liquidationDueDate = d.toISOString().split('T')[0];
+
+    const approvedAmount =
+      approvalData.budgetApprovedAmount !== undefined
+        ? Number(approvalData.budgetApprovedAmount)
+        : existingCase?.budgetAmount || 0;
+    const originalAmount = existingCase?.budgetAmount || 0;
+    const diff = approvedAmount - originalAmount;
+
     updateCase(caseId, {
       budgetStatus: 'APROBADO',
-      status: 'PROGRAMADA',
+      status: isCompleted ? 'REALIZADA' : 'PROGRAMADA',
+      isSurgeryCompleted: isCompleted,
+      budgetApprovalDate: approvalData.surgeryDate || new Date().toISOString().split('T')[0],
+      budgetApprovedAmount: approvedAmount,
+      budgetDifference: diff,
+      ...(approvalData.budgetAdjustmentReason ? { budgetAdjustmentReason: approvalData.budgetAdjustmentReason } : {}),
+      estimatedSettlementAmount: approvedAmount,
+      estimatedSettlementMonth,
+      liquidationDueDate,
       ...(approvalData.surgeryDate ? { surgeryDate: approvalData.surgeryDate } : {}),
+      ...(approvalData.surgeryTime ? { surgeryTime: approvalData.surgeryTime } : {}),
       ...(approvalData.surgeryClinic ? { estimatedSurgeryClinic: approvalData.surgeryClinic } : {}),
+      ...(approvalData.operatingRoom ? { operatingRoom: approvalData.operatingRoom } : {}),
       ...(approvalData.notes ? { notes: approvalData.notes } : {}),
     });
   };

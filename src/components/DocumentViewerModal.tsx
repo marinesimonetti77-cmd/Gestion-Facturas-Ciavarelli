@@ -289,13 +289,26 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
               ref={printAreaRef}
               className="bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-10 max-w-3xl mx-auto border border-slate-300 print:shadow-none print:border-none print:p-6 print:max-w-full"
             >
-            {/* If uploaded custom image file exists, show preview */}
-            {doc.fileDataUrl && doc.fileDataUrl.startsWith('data:image/') && (
-              <div className="mb-6 border border-slate-300 rounded-lg overflow-hidden bg-slate-100 p-2 text-center">
+            {/* If uploaded custom image or fileUrl image exists, show high quality document scan */}
+            {((doc.fileDataUrl && doc.fileDataUrl.startsWith('data:image/')) ||
+              (doc.fileUrl && (doc.fileUrl.endsWith('.jpeg') || doc.fileUrl.endsWith('.jpg') || doc.fileUrl.endsWith('.png')))) && (
+              <div className="mb-6 border-2 border-slate-300 rounded-xl overflow-hidden bg-slate-50 p-3 text-center shadow-inner">
+                <div className="text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wider flex items-center justify-between">
+                  <span>📸 Documento Escaneado Original ({doc.fileName})</span>
+                  <a
+                    href={doc.fileUrl || doc.fileDataUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-700 hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Ver tamaño completo</span>
+                  </a>
+                </div>
                 <img
-                  src={doc.fileDataUrl}
+                  src={doc.fileUrl || doc.fileDataUrl}
                   alt={doc.title}
-                  className="max-h-96 mx-auto rounded object-contain"
+                  className="max-h-[500px] w-auto mx-auto rounded-lg object-contain shadow-md border border-slate-200"
                 />
               </div>
             )}
