@@ -727,20 +727,15 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
             ) : isBudget ? (
               /* BRANCH 2: CEMET OFFICIAL SURGICAL BUDGET LAYOUT (REPLICA EXACTA DEL DOCUMENTO FÍSICO) */
               <div className="text-slate-900 font-sans p-2 sm:p-6 space-y-6 max-w-2xl mx-auto bg-white">
-                {/* Header: CEMET Emblem Left, Date Right */}
+                {/* Header: CEMET Logo Left, Date Right */}
                 <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
-                  {/* CEMET Emblem */}
+                  {/* CEMET Official Logo */}
                   <div className="flex items-center gap-3">
-                    <div className="w-14 h-12 bg-gradient-to-tr from-sky-700 via-cyan-600 to-blue-500 rounded-lg p-1.5 flex flex-col items-center justify-center text-white shadow-xs">
-                      <div className="w-7 h-4 border border-white/90 rounded-xs flex items-center justify-center mb-0.5">
-                        <div className="w-2.5 h-2.5 bg-white/50 rounded-full"></div>
-                      </div>
-                      <span className="text-[10px] font-black tracking-widest leading-none">CEMET</span>
-                    </div>
-                    <div>
-                      <span className="text-xs font-black text-slate-800 tracking-wider block">CEMET</span>
-                      <span className="text-[9px] text-slate-500 block uppercase">Centro Médico Especializado</span>
-                    </div>
+                    <img
+                      src="/assets/cemet_logo.png"
+                      alt="CEMET"
+                      className="h-14 sm:h-16 w-auto object-contain"
+                    />
                   </div>
 
                   {/* Top Right Date */}
@@ -819,8 +814,16 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
                 </div>
 
                 {/* Signature Block (Right Aligned) */}
-                <div className="pt-10 pb-4 flex justify-end">
+                <div className="pt-6 pb-4 flex justify-end">
                   <div className="text-center min-w-[220px] font-sans">
+                    <img
+                      src="/assets/firma_sello_ciavarelli.png"
+                      alt="Firma y Sello Dr. Miguel Angel Ciavarelli"
+                      className="h-20 w-auto object-contain mx-auto -mb-2"
+                      onError={e => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
                     <p className="font-bold text-xs sm:text-sm text-slate-900">
                       {doc.signee || 'Dr. Miguel Angel Ciavarelli'}
                     </p>
