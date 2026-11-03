@@ -146,7 +146,11 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
           <span className="text-xl font-bold text-emerald-400 font-mono mt-1 block">
             {formatCurrency(totalWithdrawnCollected, currency)}
           </span>
-          <span className="text-[10px] text-emerald-500 mt-1 block">Julio, Agosto y Septiembre liquidados</span>
+          <span className="text-[10px] text-emerald-500 mt-1 block">
+            {octPendingTotal === 0 && octCollectedTotal > 0
+              ? 'Julio, Agosto, Septiembre y Octubre liquidados ✓'
+              : 'Julio, Agosto y Septiembre liquidados'}
+          </span>
         </div>
 
         <div className={`rounded-xl p-4 shadow-md relative overflow-hidden border ${
@@ -245,322 +249,120 @@ export const LiquidationCalendar: React.FC<LiquidationCalendarProps> = ({
           </div>
         </div>
 
-        {/* Detalle de las 3 Facturas de Octubre */}
+        {/* Detalle Dinámico de las Facturas de Octubre */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
-          {/* Factura 293 - García Julio */}
-          <div className={`border rounded-xl p-4 space-y-2.5 shadow-sm transition flex flex-col justify-between ${
-            inv293?.status === 'COBRADA'
-              ? 'bg-slate-950/90 border-emerald-500/50'
-              : 'bg-slate-950/90 border-amber-500/60 hover:border-amber-400'
-          }`}>
-            <div className="space-y-1.5">
-              <div className="flex items-start justify-between gap-1.5">
-                <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
-                  Factura A N° 00003-00000293
-                </span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {inv293?.status === 'COBRADA' ? (
-                    <span className="text-[10px] font-bold font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      <span>COBRADA</span>
+          {octInvoices.map(inv => {
+            const isCobrada = inv.status === 'COBRADA';
+            return (
+              <div
+                key={inv.id}
+                className={`border rounded-xl p-4 space-y-2.5 shadow-sm transition flex flex-col justify-between ${
+                  isCobrada
+                    ? 'bg-slate-950/90 border-emerald-500/50 ring-1 ring-emerald-500/20'
+                    : 'bg-slate-950/90 border-amber-500/60 hover:border-amber-400'
+                }`}
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
+                      Factura A N° {inv.invoiceNumber}
                     </span>
-                  ) : (
-                    <span className="text-[10px] font-bold font-mono text-amber-300 bg-amber-950/90 border border-amber-600 px-2 py-0.5 rounded">
-                      PENDIENTE
-                    </span>
-                  )}
-                  <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded">
-                    {formatCurrency(311610.0, currency)}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isCobrada ? (
+                        <span className="text-[10px] font-bold font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>COBRADA</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold font-mono text-amber-300 bg-amber-950/90 border border-amber-600 px-2 py-0.5 rounded">
+                          PENDIENTE
+                        </span>
+                      )}
+                      <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded">
+                        {formatCurrency(inv.totalAmount, currency)}
+                      </span>
+                    </div>
+                  </div>
+                  <h4 className="text-xs font-bold text-white mt-1 leading-snug">
+                    {inv.patientName}
+                  </h4>
+                  <span className="text-[11px] text-slate-400 block">
+                    {inv.insuranceProvider} · {inv.clinic}
                   </span>
                 </div>
-              </div>
-              <h4 className="text-xs font-bold text-white mt-1 leading-snug">
-                GARCIA JULIO GUILLERMO
-              </h4>
-              <span className="text-[11px] text-slate-400 block">
-                OSDE BINARIO (Hernioplastia Bilateral) · Corp. Médica
-              </span>
-            </div>
 
-            <div className="text-[11px] text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Neto Gravado:</span>
-                <span className="font-mono text-white">$ 282.000,00</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">IVA 10,5%:</span>
-                <span className="font-mono text-white">$ 29.610,00</span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
-                <span className={inv293?.status === 'COBRADA' ? 'text-emerald-400' : 'text-amber-300'}>
-                  {inv293?.status === 'COBRADA' ? 'Cobrada:' : 'Vto. para el Cobro:'}
-                </span>
-                <span className={`font-mono ${inv293?.status === 'COBRADA' ? 'text-emerald-300' : 'text-amber-300'}`}>
-                  {inv293?.status === 'COBRADA' ? (inv293.actualCollectionDate || '20/10/2026') : '20/10/2026'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
-              <span className="text-emerald-400 font-semibold text-[10px]">CAE: 86401928374619</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {onUpdateInvoiceStatus && inv293 && (
-                  inv293.status === 'COBRADA' ? (
-                    <button
-                      onClick={() => onUpdateInvoiceStatus(inv293.id, 'PENDIENTE')}
-                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition"
-                      title="Revertir estado a pendiente"
-                    >
-                      Deshacer
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onUpdateInvoiceStatus(inv293.id, 'COBRADA')}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow-xs transition flex items-center gap-1"
-                      title="Registrar cobro de esta factura"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Cobrada ✓</span>
-                    </button>
-                  )
-                )}
-                {onViewDocument && (
-                  <button
-                    onClick={() => {
-                      if (inv293 && inv293.attachedDocuments?.[0]) {
-                        onViewDocument(inv293.attachedDocuments[0], undefined, inv293);
-                      }
-                    }}
-                    className="px-2 py-0.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-200 rounded text-[11px] font-semibold border border-cyan-700/70 transition"
-                  >
-                    Factura A
-                  </button>
-                )}
-                {onViewDocument && (
-                  <button
-                    onClick={() => {
-                      if (inv293 && inv293.attachedDocuments?.[1]) {
-                        onViewDocument(inv293.attachedDocuments[1], undefined, inv293);
-                      }
-                    }}
-                    className="px-2 py-0.5 bg-amber-950/80 hover:bg-amber-900 text-amber-200 rounded text-[11px] font-semibold border border-amber-700/70 transition"
-                  >
-                    Liquidación
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Factura 294 - Rodríguez Rocío */}
-          <div className={`border rounded-xl p-4 space-y-2.5 shadow-sm transition flex flex-col justify-between ${
-            inv294?.status === 'COBRADA'
-              ? 'bg-slate-950/90 border-emerald-500/50'
-              : 'bg-slate-950/90 border-amber-500/60 hover:border-amber-400'
-          }`}>
-            <div className="space-y-1.5">
-              <div className="flex items-start justify-between gap-1.5">
-                <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
-                  Factura A N° 00003-00000294
-                </span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {inv294?.status === 'COBRADA' ? (
-                    <span className="text-[10px] font-bold font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      <span>COBRADA</span>
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold font-mono text-amber-300 bg-amber-950/90 border border-amber-600 px-2 py-0.5 rounded">
-                      PENDIENTE
-                    </span>
+                <div className="text-[11px] text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                  {inv.netTaxableAmount !== undefined && inv.netTaxableAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Neto Gravado:</span>
+                      <span className="font-mono text-white">{formatCurrency(inv.netTaxableAmount, currency)}</span>
+                    </div>
                   )}
-                  <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded">
-                    {formatCurrency(397800.0, currency)}
+                  {inv.netExemptAmount !== undefined && inv.netExemptAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Importe Exento:</span>
+                      <span className="font-mono text-white">{formatCurrency(inv.netExemptAmount, currency)}</span>
+                    </div>
+                  )}
+                  {inv.ivaAmount !== undefined && inv.ivaAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">IVA ({inv.ivaRate || 10.5}%):</span>
+                      <span className="font-mono text-white">{formatCurrency(inv.ivaAmount, currency)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
+                    <span className={isCobrada ? 'text-emerald-400' : 'text-amber-300'}>
+                      {isCobrada ? 'Cobrada:' : 'Vto. para el Cobro:'}
+                    </span>
+                    <span className={`font-mono ${isCobrada ? 'text-emerald-300' : 'text-amber-300'}`}>
+                      {isCobrada ? (inv.actualCollectionDate || '20/10/2026') : (inv.expectedCollectionDate || '20/10/2026')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
+                  <span className="text-emerald-400 font-semibold text-[10px]">
+                    {inv.caeNumber ? `CAE: ${inv.caeNumber}` : 'Comprobante ARCA'}
                   </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {onUpdateInvoiceStatus && (
+                      isCobrada ? (
+                        <button
+                          onClick={() => onUpdateInvoiceStatus(inv.id, 'PENDIENTE')}
+                          className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition cursor-pointer"
+                          title="Revertir estado a pendiente"
+                        >
+                          Deshacer
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onUpdateInvoiceStatus(inv.id, 'COBRADA')}
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
+                          title="Registrar cobro de esta factura"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Cobrada ✓</span>
+                        </button>
+                      )
+                    )}
+                    {inv.attachedDocuments?.map((doc, idx) => (
+                      <button
+                        key={doc.id || idx}
+                        onClick={() => onViewDocument?.(doc, undefined, inv)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-semibold transition cursor-pointer border ${
+                          doc.fileType === 'liquidacion'
+                            ? 'bg-amber-950/80 hover:bg-amber-900 text-amber-200 border-amber-700/70'
+                            : 'bg-cyan-950 hover:bg-cyan-900 text-cyan-200 border-cyan-700/70'
+                        }`}
+                      >
+                        {doc.fileType === 'liquidacion' ? 'Liquidación' : 'Factura A'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <h4 className="text-xs font-bold text-white mt-1 leading-snug">
-                RODRIGUEZ ROCIO BEATRIZ
-              </h4>
-              <span className="text-[11px] text-slate-400 block">
-                C.A. Plan 606 (CIRLAP Colecistectomía) · Corp. Médica
-              </span>
-            </div>
-
-            <div className="text-[11px] text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Neto Gravado:</span>
-                <span className="font-mono text-white">$ 360.000,00</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">IVA 10,5%:</span>
-                <span className="font-mono text-white">$ 37.800,00</span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
-                <span className={inv294?.status === 'COBRADA' ? 'text-emerald-400' : 'text-amber-300'}>
-                  {inv294?.status === 'COBRADA' ? 'Cobrada:' : 'Vto. para el Cobro:'}
-                </span>
-                <span className={`font-mono ${inv294?.status === 'COBRADA' ? 'text-emerald-300' : 'text-amber-300'}`}>
-                  {inv294?.status === 'COBRADA' ? (inv294.actualCollectionDate || '20/10/2026') : '20/10/2026'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
-              <span className="text-emerald-400 font-semibold text-[10px]">CAE: 86401928374620</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {onUpdateInvoiceStatus && inv294 && (
-                  inv294.status === 'COBRADA' ? (
-                    <button
-                      onClick={() => onUpdateInvoiceStatus(inv294.id, 'PENDIENTE')}
-                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition"
-                      title="Revertir estado a pendiente"
-                    >
-                      Deshacer
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onUpdateInvoiceStatus(inv294.id, 'COBRADA')}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow-xs transition flex items-center gap-1"
-                      title="Registrar cobro de esta factura"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Cobrada ✓</span>
-                    </button>
-                  )
-                )}
-                {onViewDocument && (
-                  <button
-                    onClick={() => {
-                      if (inv294 && inv294.attachedDocuments?.[0]) {
-                        onViewDocument(inv294.attachedDocuments[0], undefined, inv294);
-                      }
-                    }}
-                    className="px-2 py-0.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-200 rounded text-[11px] font-semibold border border-cyan-700/70 transition"
-                  >
-                    Factura A
-                  </button>
-                )}
-                {onViewDocument && (
-                  <button
-                    onClick={() => {
-                      if (inv294 && inv294.attachedDocuments?.[1]) {
-                        onViewDocument(inv294.attachedDocuments[1], undefined, inv294);
-                      }
-                    }}
-                    className="px-2 py-0.5 bg-amber-950/80 hover:bg-amber-900 text-amber-200 rounded text-[11px] font-semibold border border-amber-700/70 transition"
-                  >
-                    Liquidación
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Factura 295 - Da Cunha María */}
-          <div className={`border rounded-xl p-4 space-y-2.5 shadow-sm transition flex flex-col justify-between ${
-            inv295?.status === 'COBRADA'
-              ? 'bg-slate-950/90 border-emerald-500/50'
-              : 'bg-slate-950/90 border-amber-500/60 hover:border-amber-400'
-          }`}>
-            <div className="space-y-1.5">
-              <div className="flex items-start justify-between gap-1.5">
-                <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
-                  Factura A N° 00003-00000295
-                </span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {inv295?.status === 'COBRADA' ? (
-                    <span className="text-[10px] font-bold font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-600 px-2 py-0.5 rounded flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      <span>COBRADA</span>
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold font-mono text-amber-300 bg-amber-950/90 border border-amber-600 px-2 py-0.5 rounded">
-                      PENDIENTE
-                    </span>
-                  )}
-                  <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded shrink-0">
-                    {formatCurrency(52800.0, currency)}
-                  </span>
-                </div>
-              </div>
-              <h4 className="text-xs font-bold text-white mt-1 leading-snug">
-                DA CUNHA MENDEZ MARIA SOLEDAD
-              </h4>
-              <span className="text-[11px] text-slate-400 block">
-                SAT S/I (3 Consultas externas) · Corp. Médica
-              </span>
-            </div>
-
-            <div className="text-[11px] text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Concepto:</span>
-                <span className="text-slate-200">Consultas C. General</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Importe Exento:</span>
-                <span className="font-mono text-white">$ 52.800,00</span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-slate-800 font-bold">
-                <span className={inv295?.status === 'COBRADA' ? 'text-emerald-400' : 'text-amber-300'}>
-                  {inv295?.status === 'COBRADA' ? 'Cobrada:' : 'Vto. para el Cobro:'}
-                </span>
-                <span className={`font-mono ${inv295?.status === 'COBRADA' ? 'text-emerald-300' : 'text-amber-300'}`}>
-                  {inv295?.status === 'COBRADA' ? (inv295.actualCollectionDate || '20/10/2026') : '20/10/2026'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
-              <span className="text-emerald-400 font-semibold text-[10px]">CAE: 86401929481723</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {onUpdateInvoiceStatus && inv295 && (
-                  inv295.status === 'COBRADA' ? (
-                    <button
-                      onClick={() => onUpdateInvoiceStatus(inv295.id, 'PENDIENTE')}
-                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition"
-                      title="Revertir estado a pendiente"
-                    >
-                      Deshacer
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onUpdateInvoiceStatus(inv295.id, 'COBRADA')}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold shadow-xs transition flex items-center gap-1"
-                      title="Registrar cobro de esta factura"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Cobrada ✓</span>
-                    </button>
-                  )
-                )}
-                {onViewDocument && (
-                  <button
-                    onClick={() => {
-                      if (inv295 && inv295.attachedDocuments?.[0]) {
-                        onViewDocument(inv295.attachedDocuments[0], undefined, inv295);
-                      }
-                    }}
-                    className="px-2 py-0.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-200 rounded text-[11px] font-semibold border border-cyan-700/70 transition"
-                  >
-                    Factura A
-                  </button>
-                )}
-                {onViewDocument && (
-                  <button
-                    onClick={() => {
-                      if (inv295 && inv295.attachedDocuments?.[1]) {
-                        onViewDocument(inv295.attachedDocuments[1], undefined, inv295);
-                      }
-                    }}
-                    className="px-2 py-0.5 bg-amber-950/80 hover:bg-amber-900 text-amber-200 rounded text-[11px] font-semibold border border-amber-700/70 transition"
-                  >
-                    Liquidación
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
 

@@ -15,17 +15,7 @@ export function useSurgicalStore() {
       const saved = localStorage.getItem(STORAGE_KEY_CASES);
       if (!saved) return INITIAL_CASES;
       const parsed = JSON.parse(saved);
-      // Ensure it contains real cases and Facundo's budget
-      const hasRealCiavarelliCase = parsed.some((c: any) => c.patientName?.includes('Quintana') || c.patientName?.includes('GARCIA'));
-      const hasFacundo = parsed.some((c: any) => c.patientName?.includes('Facundo') || c.procedureName?.includes('Hepatectomía'));
-      if (Array.isArray(parsed) && hasRealCiavarelliCase && hasFacundo) {
-        const hasPapasideroReal = parsed.some((c: any) => c.patientName?.includes('Papasidero') && c.budgetApprovedAmount === 900000);
-        if (!hasPapasideroReal) {
-          const papasideroFromInit = INITIAL_CASES.find(c => c.id === 'case-ciav-papasidero');
-          if (papasideroFromInit) {
-            return parsed.map((c: any) => c.id === 'case-ciav-papasidero' ? papasideroFromInit : c);
-          }
-        }
+      if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed;
       }
       return INITIAL_CASES;
@@ -39,12 +29,10 @@ export function useSurgicalStore() {
       const saved = localStorage.getItem(STORAGE_KEY_INVOICES);
       if (!saved) return INITIAL_INVOICES;
       const parsed: Invoice[] = JSON.parse(saved);
-      if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_INVOICES;
-
-      // Preserve user changes! If an invoice is in parsed, keep its exact status & dates.
-      const existingIds = new Set(parsed.map(i => i.id));
-      const missingInitial = INITIAL_INVOICES.filter(init => !existingIds.has(init.id));
-      return missingInitial.length > 0 ? [...parsed, ...missingInitial] : parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+      return INITIAL_INVOICES;
     } catch {
       return INITIAL_INVOICES;
     }
@@ -75,8 +63,7 @@ export function useSurgicalStore() {
       const saved = localStorage.getItem(STORAGE_KEY_CERTIFICATES);
       if (!saved) return INITIAL_CERTIFICATES;
       const parsed = JSON.parse(saved);
-      const hasAlex = Array.isArray(parsed) && parsed.some((c: any) => c.patientName?.includes('Alex'));
-      return hasAlex ? parsed : INITIAL_CERTIFICATES;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_CERTIFICATES;
     } catch {
       return INITIAL_CERTIFICATES;
     }
@@ -111,23 +98,48 @@ export function useSurgicalStore() {
         .filter(i => i.status !== 'COBRADA')
         .reduce(
           (sum, i) =>
-            sum + (Number(i.pendingAmount) !== undefined ? Number(i.pendingAmount) : Number(i.totalAmount) || 0),
+            sum + (typeof i.pendingAmount === 'number' ? i.pendingAmount : Number(i.totalAmount) || 0),
           0
         );
 
-      setSchedules(prev =>
-        prev.map(s => {
+      setSchedules(prev => {
+        let changed = false;
+        const next = prev.map(s => {
           if (s.monthKey === '2026-10') {
-            return {
-              ...s,
-              withdrawnCollected: collectedOct,
-              registeredCollections: collectedOct,
-              pendingCollection: pendingOct,
-            };
+            const allPaid = pendingOct === 0;
+            const updatedNotes = allPaid
+              ? `Todas las facturas de Octubre han sido cobradas (Total: $ ${collectedOct.toLocaleString('es-AR')}). En espera de liquidación CEMET Quintana ($ 1.6M).`
+              : s.notes;
+
+            if (
+              s.withdrawnCollected !== collectedOct ||
+              s.registeredCollections !== collectedOct ||
+              s.pendingCollection !== pendingOct ||
+              (allPaid && s.notes !== updatedNotes)
+            ) {
+              changed = true;
+              return {
+                ...s,
+                withdrawnCollected: collectedOct,
+                registeredCollections: collectedOct,
+                pendingCollection: pendingOct,
+                notes: updatedNotes,
+              };
+            }
           }
           return s;
-        })
-      );
+        });
+
+        if (changed) {
+          try {
+            localStorage.setItem(STORAGE_KEY_SCHEDULES, JSON.stringify(next));
+          } catch (e) {
+            console.error(e);
+          }
+          return next;
+        }
+        return prev;
+      });
     }
   }, [invoices]);
 
@@ -343,9 +355,15 @@ export function useSurgicalStore() {
 
   // Schedules actions
   const updateSchedule = (monthKey: string, updates: Partial<MonthlyLiquidationSchedule>) => {
-    setSchedules(prev =>
-      prev.map(s => (s.monthKey === monthKey ? { ...s, ...updates } : s))
-    );
+    setSchedules(prev => {
+      const next = prev.map(s => (s.monthKey === monthKey ? { ...s, ...updates } : s));
+      try {
+        localStorage.setItem(STORAGE_KEY_SCHEDULES, JSON.stringify(next));
+      } catch (e) {
+        console.error('Failed to save schedules to localStorage', e);
+      }
+      return next;
+    });
   };
 
   // Settings actions
@@ -396,8 +414,20 @@ export function useSurgicalStore() {
     setCertificates(prev => prev.filter(c => c.id !== id));
   };
 
-  // Official Invoices & Schedules Manual Synchronization
+  // Manual save and synchronization (does NOT wipe user edits)
   const syncOfficialInvoices = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY_CASES, JSON.stringify(cases));
+      localStorage.setItem(STORAGE_KEY_INVOICES, JSON.stringify(invoices));
+      localStorage.setItem(STORAGE_KEY_SCHEDULES, JSON.stringify(schedules));
+      localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+      localStorage.setItem(STORAGE_KEY_CERTIFICATES, JSON.stringify(certificates));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const resetToDemoData = () => {
     setCases(INITIAL_CASES);
     setInvoices(INITIAL_INVOICES);
     setSchedules(INITIAL_MONTHLY_SCHEDULES);
@@ -412,10 +442,6 @@ export function useSurgicalStore() {
     } catch (e) {
       console.error(e);
     }
-  };
-
-  const resetToDemoData = () => {
-    syncOfficialInvoices();
   };
 
   const createInvoiceForCase = (c: SurgicalCase) => {

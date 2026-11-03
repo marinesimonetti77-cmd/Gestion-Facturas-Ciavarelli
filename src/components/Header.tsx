@@ -322,11 +322,11 @@ export const Header: React.FC<HeaderProps> = ({
             {onSyncInvoices && (
               <button
                 onClick={onSyncInvoices}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
-                title="Sincronizar y recargar las 3 facturas de Octubre y presupuestos oficiales"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+                title="Guardar y respaldar todas las modificaciones y cobranzas"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sincronizar 20/10</span>
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Guardar Cambios</span>
               </button>
             )}
 

@@ -58,7 +58,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedInsurance, setSelectedInsurance] = useState<string>('ALL');
-  const [quickFilter, setQuickFilter] = useState<'ALL' | 'PENDING_OCT' | 'COLLECTED'>('ALL');
+  const [quickFilter, setQuickFilter] = useState<'ALL' | 'PENDING_OCT' | 'OCT_ALL' | 'COLLECTED'>('ALL');
 
   const insurancesList = useMemo(() => {
     const set = new Set<string>();
@@ -68,7 +68,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
     return Array.from(set);
   }, [invoices]);
 
-  // Specific calculation for October 20 pending collections
+  // Specific calculation for October 20 collections
   const octoberPendingInvoices = useMemo(() => {
     return invoices.filter(
       i =>
@@ -84,12 +84,32 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
     );
   }, [invoices]);
 
+  const octoberAllInvoices = useMemo(() => {
+    return invoices.filter(
+      i =>
+        i.expectedCollectionDate?.includes('2026-10') ||
+        i.issueDate?.includes('2026-10') ||
+        i.invoiceNumber?.includes('293') ||
+        i.invoiceNumber?.includes('294') ||
+        i.invoiceNumber?.includes('295') ||
+        i.id === 'inv-afip-293' ||
+        i.id === 'inv-afip-294' ||
+        i.id === 'inv-afip-295'
+    );
+  }, [invoices]);
+
   const octoberPendingTotal = useMemo(() => {
     return octoberPendingInvoices.reduce(
-      (acc, i) => acc + (Number(i.pendingAmount) || Number(i.totalAmount) || 0),
+      (acc, i) => acc + (typeof i.pendingAmount === 'number' ? i.pendingAmount : Number(i.totalAmount) || 0),
       0
     );
   }, [octoberPendingInvoices]);
+
+  const octoberCollectedTotal = useMemo(() => {
+    return octoberAllInvoices
+      .filter(i => i.status === 'COBRADA')
+      .reduce((acc, i) => acc + (Number(i.collectedAmount) || Number(i.totalAmount) || 0), 0);
+  }, [octoberAllInvoices]);
 
   const filteredInvoices = useMemo(() => {
     const list = invoices.filter(inv => {
@@ -99,10 +119,23 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
           inv.status !== 'COBRADA' &&
           (inv.expectedCollectionDate?.includes('2026-10') ||
             inv.issueDate?.includes('2026-10') ||
+            inv.invoiceNumber?.includes('293') ||
             inv.invoiceNumber?.includes('294') ||
             inv.invoiceNumber?.includes('295') ||
+            inv.id === 'inv-afip-293' ||
             inv.id === 'inv-afip-294' ||
             inv.id === 'inv-afip-295');
+        if (!isOct) return false;
+      } else if (quickFilter === 'OCT_ALL') {
+        const isOct =
+          inv.expectedCollectionDate?.includes('2026-10') ||
+          inv.issueDate?.includes('2026-10') ||
+          inv.invoiceNumber?.includes('293') ||
+          inv.invoiceNumber?.includes('294') ||
+          inv.invoiceNumber?.includes('295') ||
+          inv.id === 'inv-afip-293' ||
+          inv.id === 'inv-afip-294' ||
+          inv.id === 'inv-afip-295';
         if (!isOct) return false;
       } else if (quickFilter === 'COLLECTED') {
         if (inv.status !== 'COBRADA') return false;
@@ -261,8 +294,8 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
         </div>
       </div>
 
-      {/* Banner Destacado: Cobranzas Pendientes para el 20 de Octubre de 2026 */}
-      {octoberPendingInvoices.length > 0 && (
+      {/* Banner Destacado: Cobranzas de Octubre 2026 */}
+      {octoberPendingInvoices.length > 0 ? (
         <div className="bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-900 border-2 border-amber-500/80 rounded-2xl p-5 shadow-xl relative overflow-hidden">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
@@ -285,7 +318,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
                   Se emitieron <strong>{octoberPendingInvoices.length} Facturas A con CAE ARCA/AFIP</strong> por prestaciones médicas y cirugías, con fecha límite de cobro para este <strong>20 de Octubre</strong>:
                 </p>
 
-                {/* Sub-tarjetas de facturas de Octubre */}
+                {/* Sub-tarjetas de facturas de Octubre Pendientes */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2">
                   {octoberPendingInvoices.map(inv => (
                     <div
@@ -324,7 +357,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
                           )}
                           <button
                             onClick={() => onUpdateStatus(inv.id, 'COBRADA')}
-                            className="px-2 py-0.5 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition shadow-xs"
+                            className="px-2 py-0.5 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded text-[11px] font-bold transition shadow-xs cursor-pointer"
                             title="Marcar como cobrada"
                           >
                             Cobrada ✓
@@ -340,7 +373,7 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start lg:self-center shrink-0">
               <button
                 onClick={() => setQuickFilter(quickFilter === 'PENDING_OCT' ? 'ALL' : 'PENDING_OCT')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md cursor-pointer ${
                   quickFilter === 'PENDING_OCT'
                     ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
                     : 'bg-amber-500/20 border border-amber-500/50 text-amber-200 hover:bg-amber-500/30'
@@ -348,6 +381,100 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
               >
                 <Filter className="w-4 h-4" />
                 <span>{quickFilter === 'PENDING_OCT' ? 'Ver Todas las Facturas' : 'Filtrar Solo Pendientes 20/10'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border-2 border-emerald-500/80 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 shrink-0 mt-0.5 shadow-sm">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-slate-950 px-2 py-0.5 rounded font-mono">
+                    ✓ AL DÍA · COBRANZA OCTUBRE 2026 COMPLETA
+                  </span>
+                  <span className="text-xs text-emerald-200 font-semibold">
+                    Mes en Curso · 20/10/2026
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Todas las facturas de Octubre han sido cobradas:{' '}
+                  <span className="text-emerald-300 font-mono font-black">
+                    {formatCurrency(octoberCollectedTotal, currency)}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-300 max-w-2xl">
+                  Las facturas A oficiales (293, 294 y 295) están registradas como <strong>COBRADAS</strong>. Puedes revertir o ajustar cualquiera de ellas si lo requieres:
+                </p>
+
+                {/* Sub-tarjetas de facturas de Octubre Cobradas */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2">
+                  {octoberAllInvoices.map(inv => (
+                    <div
+                      key={inv.id}
+                      className="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-3 flex flex-col justify-between space-y-2 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="font-mono text-xs font-bold text-cyan-400">
+                            {inv.invoiceNumber}
+                          </span>
+                          <h4 className="text-xs font-bold text-white mt-0.5">
+                            {inv.patientName}
+                          </h4>
+                          <span className="text-[11px] text-slate-400 block">
+                            {inv.insuranceProvider} · {inv.clinic}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-700/60 px-2 py-0.5 rounded shrink-0">
+                          {formatCurrency(inv.totalAmount, currency)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px]">
+                        <span className="text-emerald-300 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>Cobrada el {inv.actualCollectionDate || '20/10/2026'}</span>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {onViewDocument && inv.attachedDocuments?.[0] && (
+                            <button
+                              onClick={() => onViewDocument(inv.attachedDocuments![0], undefined, inv)}
+                              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[11px] font-semibold border border-slate-700 transition"
+                            >
+                              Ver Factura
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onUpdateStatus(inv.id, 'PENDIENTE')}
+                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold border border-slate-700 transition cursor-pointer"
+                            title="Revertir a estado pendiente"
+                          >
+                            Deshacer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-start lg:self-center shrink-0">
+              <button
+                onClick={() => setQuickFilter(quickFilter === 'OCT_ALL' ? 'ALL' : 'OCT_ALL')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md cursor-pointer ${
+                  quickFilter === 'OCT_ALL'
+                    ? 'bg-emerald-500 text-slate-950 ring-2 ring-emerald-300'
+                    : 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-200 hover:bg-emerald-500/30'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span>{quickFilter === 'OCT_ALL' ? 'Ver Todas las Facturas' : 'Filtrar Facturas de Octubre'}</span>
               </button>
             </div>
           </div>
@@ -381,11 +508,11 @@ export const InvoicesList: React.FC<InvoicesListProps> = ({
             {onSyncInvoices && (
               <button
                 onClick={onSyncInvoices}
-                className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-semibold border border-amber-500/50 transition shadow-sm"
-                title="Sincronizar y recargar las facturas oficiales de Octubre (294 y 295)"
+                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg text-xs font-semibold border border-emerald-500/50 transition shadow-sm cursor-pointer"
+                title="Guardar y respaldar todas las cobranzas y cambios manuales"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-                <span>Sincronizar Facturas 20/10</span>
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Guardar y Respaldar</span>
               </button>
             )}
 

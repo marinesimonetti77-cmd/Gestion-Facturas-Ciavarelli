@@ -208,7 +208,7 @@ export default function App() {
         }}
         onSyncInvoices={() => {
           syncOfficialInvoices();
-          showToast('Datos oficiales sincronizados: 3 facturas de Octubre ($ 762.210) y Presupuestos actualizados');
+          showToast('✓ Cambios manuales y cobranzas guardados y respaldados correctamente.');
         }}
       />
 
@@ -236,7 +236,7 @@ export default function App() {
             onViewDocument={handleOpenDocument}
             onSyncInvoices={() => {
               syncOfficialInvoices();
-              showToast('Facturas oficiales y liquidaciones del 20/10 sincronizadas con éxito.');
+              showToast('✓ Cambios manuales y cobranzas guardados y respaldados correctamente.');
             }}
           />
         )}
@@ -320,7 +320,7 @@ export default function App() {
             onViewDocument={handleOpenDocument}
             onSyncInvoices={() => {
               syncOfficialInvoices();
-              showToast('Facturas oficiales y liquidaciones del 20/10 sincronizadas con éxito.');
+              showToast('✓ Cambios manuales y cobranzas guardados y respaldados correctamente.');
             }}
           />
         )}
