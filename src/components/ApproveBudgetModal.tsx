@@ -81,6 +81,26 @@ export const ApproveBudgetModal: React.FC<ApproveBudgetModalProps> = ({
   const [approvalNotes, setApprovalNotes] = useState<string>(caseItem?.notes || '');
   const [error, setError] = useState<string>('');
 
+  React.useEffect(() => {
+    if (caseItem) {
+      const initialAmt =
+        caseItem.budgetApprovedAmount !== undefined
+          ? String(caseItem.budgetApprovedAmount)
+          : caseItem.budgetAmount
+          ? String(caseItem.budgetAmount)
+          : '0';
+      setApprovedAmountStr(initialAmt);
+      setAdjustmentReason(caseItem.budgetAdjustmentReason || '');
+      setIsCompleted(caseItem.status === 'REALIZADA' || Boolean(caseItem.isSurgeryCompleted));
+      setSurgeryDate(caseItem.surgeryDate || (caseItem.status === 'REALIZADA' ? '2026-10-28' : '2026-11-12'));
+      setSurgeryTime(caseItem.surgeryTime || '08:30');
+      setOperatingRoom(caseItem.operatingRoom || 'Quirófano Central');
+      setClinic(caseItem.estimatedSurgeryClinic || 'Corporación Médica de Gral San Martín SA');
+      setApprovalNotes(caseItem.notes || '');
+      setError('');
+    }
+  }, [caseItem]);
+
   if (!isOpen || !caseItem) return null;
 
   const currentApprovedNum = parseFloat(approvedAmountStr) || 0;
@@ -239,7 +259,7 @@ export const ApproveBudgetModal: React.FC<ApproveBudgetModalProps> = ({
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-7 pr-3 py-2 text-xs font-mono font-bold text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <button
                     type="button"
                     onClick={() => setApprovedAmountStr(String(originalBudget))}
@@ -247,14 +267,26 @@ export const ApproveBudgetModal: React.FC<ApproveBudgetModalProps> = ({
                   >
                     Usar valor original ({formatCurrency(originalBudget, currency)})
                   </button>
+                  {caseItem.id === 'case-ciav-rodriguez-facundo' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApprovedAmountStr('1000000');
+                        setAdjustmentReason('Presupuestado por $ 1.600.000. Aprobado por Corporación Médica Asistencial por el valor de $ 1.000.000.');
+                      }}
+                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded cursor-pointer transition hover:bg-emerald-900"
+                    >
+                      $ 1.000.000 (Facundo Rodriguez)
+                    </button>
+                  )}
                   {caseItem.id === 'case-ciav-papasidero' && (
                     <button
                       type="button"
                       onClick={() => {
                         setApprovedAmountStr('900000');
-                        setAdjustmentReason('Presupuestado por $1.300.000. Corporación Médica Asistencial autorizó finalmente $900.000.');
+                        setAdjustmentReason('Presupuestado por $ 1.300.000. Corporación Médica Asistencial autorizó finalmente $ 900.000.');
                       }}
-                      className="text-[10px] text-cyan-400 hover:underline cursor-pointer"
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold bg-cyan-950/80 border border-cyan-700/80 px-2 py-0.5 rounded cursor-pointer transition hover:bg-cyan-900"
                     >
                       $ 900.000 (Papasidero)
                     </button>

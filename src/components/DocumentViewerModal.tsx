@@ -15,6 +15,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { AttachedDocument, SurgicalCase, Invoice } from '../types/surgical';
+import { CEMET_LOGO_SRC, FIRMA_SELLO_SRC } from '../assets/branding';
 
 interface DocumentViewerModalProps {
   isOpen: boolean;
@@ -43,6 +44,15 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   const isLiquidation = doc.fileType === 'liquidacion' || doc.fileName.toLowerCase().includes('liquidacion');
   const isInvoice = !isLiquidation && (doc.fileType === 'factura' || doc.fileType === 'comprobante' || (!associatedCase && !!associatedInvoice));
   const isBudget = !isLiquidation && !isInvoice && (doc.fileType === 'presupuesto' || doc.fileName.toLowerCase().includes('presupuesto'));
+  const isCertificate = !isLiquidation && !isInvoice && !isBudget && (
+    doc.fileType === 'certificado' ||
+    doc.fileType === 'receta' ||
+    (doc.fileType as string) === 'reposo' ||
+    doc.fileName.toLowerCase().includes('certificado') ||
+    doc.fileName.toLowerCase().includes('receta') ||
+    doc.title.toLowerCase().includes('certificado') ||
+    doc.title.toLowerCase().includes('receta')
+  );
   const inv = associatedInvoice;
 
   const handleDownload = () => {
@@ -732,9 +742,10 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
                   {/* CEMET Official Logo */}
                   <div className="flex items-center gap-3">
                     <img
-                      src="/assets/cemet_logo.png"
-                      alt="CEMET"
-                      className="h-14 sm:h-16 w-auto object-contain"
+                      src={CEMET_LOGO_SRC}
+                      alt="CEMET - Centro de Metástasis Hepáticas"
+                      className="h-16 sm:h-20 w-auto object-contain max-w-[210px]"
+                      crossOrigin="anonymous"
                     />
                   </div>
 
@@ -817,12 +828,10 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
                 <div className="pt-6 pb-4 flex justify-end">
                   <div className="text-center min-w-[220px] font-sans">
                     <img
-                      src="/assets/firma_sello_ciavarelli.png"
+                      src={FIRMA_SELLO_SRC}
                       alt="Firma y Sello Dr. Miguel Angel Ciavarelli"
                       className="h-20 w-auto object-contain mx-auto -mb-2"
-                      onError={e => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
+                      crossOrigin="anonymous"
                     />
                     <p className="font-bold text-xs sm:text-sm text-slate-900">
                       {doc.signee || 'Dr. Miguel Angel Ciavarelli'}
@@ -853,22 +862,112 @@ ${doc.technicalDescription ? `DESCRIPCIÓN TÉCNICA DETALLADA:\n${doc.technicalD
                   </span>
                 </div>
               </div>
+            ) : isCertificate ? (
+              /* BRANCH 2.5: CEMET OFFICIAL MEDICAL CERTIFICATE & PRESCRIPTION LAYOUT */
+              <div className="text-slate-900 font-sans p-2 sm:p-6 space-y-6 max-w-3xl mx-auto bg-white border border-slate-200 rounded-lg shadow-sm">
+                {/* Header: CEMET Logo Left, Doctor Credentials Right */}
+                <div className="flex items-start justify-between gap-4 border-b-2 border-slate-900 pb-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={CEMET_LOGO_SRC}
+                      alt="CEMET - Centro de Metástasis Hepáticas"
+                      className="h-16 sm:h-20 w-auto object-contain max-w-[210px]"
+                      crossOrigin="anonymous"
+                    />
+                  </div>
+                  <div className="text-right text-xs leading-relaxed text-slate-800">
+                    <div className="font-bold text-sm text-slate-900">
+                      Médico: {doc.signee || patient?.surgeonName || 'Dr. Miguel Angel Ciavarelli'}
+                    </div>
+                    <div className="font-medium text-slate-700">Especialidad: Cirugía Hepatobilio Pancreática / Cirugía Gral</div>
+                    <div className="font-mono text-slate-800">Matrícula Nac.: 70212 | Matrícula Prov.: 440703</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                      Fecha: {doc.date || '2026-10-23'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Patient Information Section */}
+                <div className="py-3 border-b border-slate-300 text-xs leading-relaxed text-slate-800 space-y-1">
+                  <div className="font-bold text-sm text-slate-950">
+                    Paciente: <span className="font-extrabold text-slate-900">{patient?.patientName || doc.title.replace('Certificado', '').replace('Receta', '').trim() || 'Alex Ezequiel Rojas'}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                    <div>DNI: <span className="font-medium font-mono">{patient?.patientDni || '45.922.096'}</span></div>
+                    <div>F. Nac. / Edad: <span className="font-medium">{patient?.patientBirthDate || '22 años'}</span></div>
+                    <div>Sexo: <span className="font-medium">{patient?.patientGender || 'M'}</span></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div>Obra social: <span className="font-semibold">{patient?.insuranceProvider || 'Hominis Vita +'}</span></div>
+                    <div>Credencial N°: <span className="font-mono">{patient?.insuranceAffiliateNumber || '2457689-00'}</span></div>
+                  </div>
+                  {doc.description && (
+                    <div className="pt-1 text-[11px] text-slate-600">
+                      Diagnóstico: <span className="italic">{doc.description}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Body Content (Rp./ Prescripción o Certificación) */}
+                <div className="py-2 space-y-2">
+                  <div className="text-base font-black text-slate-900 font-serif">
+                    Rp./
+                  </div>
+                  <div className="text-xs sm:text-sm text-slate-900 whitespace-pre-line leading-relaxed min-h-[140px] bg-slate-50/50 p-4 rounded border border-slate-200">
+                    {doc.summaryText || doc.description || 'El portador de la presente fue asistido en el día de la fecha, debiendo continuar con reposo, tratamiento y estudios por un lapso de 15 días.'}
+                  </div>
+                </div>
+
+                {/* Footer: Signature and Stamp */}
+                <div className="pt-4 border-t border-slate-200 flex items-end justify-between">
+                  <div className="text-xs font-semibold text-slate-800">
+                    Lugar y Fecha: <span className="font-bold">San Martín, {doc.date}</span>
+                  </div>
+                  <div className="text-center min-w-[200px]">
+                    <img
+                      src={FIRMA_SELLO_SRC}
+                      alt="Firma y Sello Dr. Ciavarelli"
+                      className="h-16 sm:h-20 w-auto object-contain mx-auto mb-1"
+                      crossOrigin="anonymous"
+                    />
+                    <span className="text-[10px] uppercase tracking-wider text-slate-700 font-bold block">
+                      FIRMA Y SELLO PROFESIONAL
+                    </span>
+                  </div>
+                </div>
+
+                {/* File info footer */}
+                <div className="mt-4 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono print:hidden">
+                  <span>Documento Oficial CEMET</span>
+                  <span>{doc.fileName}</span>
+                </div>
+              </div>
             ) : (
               /* BRANCH 3: OFFICIAL CLINICAL SURGICAL PROTOCOL LAYOUT */
               <div className="font-serif text-slate-900 space-y-6">
                 {/* Institution Header */}
                 <div className="border-b-2 border-slate-900 pb-4 mb-6">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 font-sans uppercase">
-                        {doc.institution}
-                      </h3>
-                      <p className="text-xs text-slate-600 font-sans mt-0.5">
-                        Servicio de Cirugía General, Digestiva y Hepatobiliopancreática (HBP)
-                      </p>
-                      <p className="text-[11px] text-slate-500 font-sans">
-                        Provincia de Buenos Aires · República Argentina
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {doc.institution?.includes('CEMET') && (
+                        <img
+                          src={CEMET_LOGO_SRC}
+                          alt="CEMET"
+                          className="h-14 sm:h-16 w-auto object-contain"
+                          crossOrigin="anonymous"
+                        />
+                      )}
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 font-sans uppercase">
+                          {doc.institution}
+                        </h3>
+                        <p className="text-xs text-slate-600 font-sans mt-0.5">
+                          Servicio de Cirugía General, Digestiva y Hepatobiliopancreática (HBP)
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-sans">
+                          Provincia de Buenos Aires · República Argentina
+                        </p>
+                      </div>
                     </div>
                     <div className="text-right font-sans">
                       <span className="inline-block bg-slate-900 text-white text-[11px] font-bold px-2.5 py-1 rounded">

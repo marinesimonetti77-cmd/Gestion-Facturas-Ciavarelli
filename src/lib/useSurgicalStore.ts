@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { SurgicalCase, Invoice, AppSettings, SurgeryStatus, InvoiceStatus, MonthlyLiquidationSchedule, MedicalCertificate } from '../types/surgical';
 import { INITIAL_CASES, INITIAL_INVOICES, INITIAL_SETTINGS, INITIAL_MONTHLY_SCHEDULES, INITIAL_CERTIFICATES } from './mockData';
 
-// Storage keys versioned to v9 to ensure fresh migration of October invoices and budgets
-const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v9';
+// Storage keys versioned to v10 to ensure Rodriguez Facundo approved budget of $ 1.000.000
+const STORAGE_KEY_CASES = 'ciavarelli_hub_cases_v10';
 const STORAGE_KEY_INVOICES = 'ciavarelli_hub_invoices_v9';
 const STORAGE_KEY_SETTINGS = 'ciavarelli_hub_settings_v9';
 const STORAGE_KEY_SCHEDULES = 'ciavarelli_hub_schedules_v9';
@@ -12,11 +12,39 @@ const STORAGE_KEY_CERTIFICATES = 'ciavarelli_hub_certificates_v1';
 export function useSurgicalStore() {
   const [cases, setCases] = useState<SurgicalCase[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_CASES);
-      if (!saved) return INITIAL_CASES;
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      const savedV10 = localStorage.getItem(STORAGE_KEY_CASES);
+      if (savedV10) {
+        const parsed = JSON.parse(savedV10);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      // Migrate from v9 and ensure Rodriguez Facundo reflects the $ 1.000.000 approved amount
+      const savedV9 = localStorage.getItem('ciavarelli_hub_cases_v9');
+      if (savedV9) {
+        const parsed = JSON.parse(savedV9);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const migrated = parsed.map((c: SurgicalCase) => {
+            if (c.id === 'case-ciav-rodriguez-facundo') {
+              return {
+                ...c,
+                budgetStatus: 'APROBADO',
+                budgetApprovalDate: '2026-11-04',
+                budgetApprovedAmount: 1000000.0,
+                budgetDifference: -600000.0,
+                budgetAdjustmentReason: 'Presupuestado por $ 1.600.000. Aprobado por Corporación Médica Asistencial por el valor de $ 1.000.000 (arancel autorizado de equipo según convenio).',
+                estimatedSettlementAmount: 1000000.0,
+                status: c.status === 'PRESUPUESTADO' ? 'PROGRAMADA' : c.status,
+                surgeryDate: c.surgeryDate || '2026-11-12',
+              };
+            }
+            return c;
+          });
+          try {
+            localStorage.setItem(STORAGE_KEY_CASES, JSON.stringify(migrated));
+          } catch (e) {
+            console.error(e);
+          }
+          return migrated;
+        }
       }
       return INITIAL_CASES;
     } catch {

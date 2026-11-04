@@ -125,13 +125,20 @@ export const INITIAL_CASES: SurgicalCase[] = [
     estimatedSurgeryClinic: 'Corporación Médica de Gral San Martín SA',
     estimatedDurationHours: 5.0,
     icuDaysEstimated: 3,
-    surgeryDate: '', // En espera de que Corporación Médica apruebe el presupuesto y tengamos fecha de cirugía
+    surgeryDate: '2026-11-12', // Cirugía programada con presupuesto aprobado
     surgeryTime: '08:00',
-    status: 'PRESUPUESTADO',
-    budgetStatus: 'PENDIENTE_APROBACION',
+    status: 'PROGRAMADA',
+    budgetStatus: 'APROBADO',
     budgetSentDate: '2026-10-17',
+    budgetApprovalDate: '2026-11-04',
     budgetAmount: 1600000.0,
-    notes: 'Presupuesto quirúrgico emitido el 17/10/2026 a Corporación Médica Asistencial (Plan 101 Exento, Afiliado 122570). En espera de aprobación sanatorial para fecha de cirugía. Honorarios equipo: $ 1.600.000 pesos.',
+    budgetApprovedAmount: 1000000.0,
+    budgetDifference: -600000.0,
+    budgetAdjustmentReason: 'Presupuestado por $ 1.600.000. Aprobado por Corporación Médica Asistencial por el valor de $ 1.000.000 (arancel autorizado de equipo según convenio).',
+    estimatedSettlementAmount: 1000000.0,
+    estimatedSettlementMonth: 'febrero de 2027',
+    liquidationDueDate: '2027-02-10',
+    notes: 'Presupuesto quirúrgico emitido el 17/10/2026. APROBADO por Corporación Médica Asistencial por el valor de $ 1.000.000 (diferencia sobre presupuesto inicial de $ 1.600.000: -$ 600.000). Cirugía programada para el 12/11/2026.',
     materials: [],
     attachedDocuments: [
       {

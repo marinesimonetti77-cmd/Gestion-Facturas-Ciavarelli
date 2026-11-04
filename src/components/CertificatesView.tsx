@@ -23,6 +23,7 @@ import {
 import jsPDF from 'jspdf';
 import { toPng } from 'html-to-image';
 import { MedicalCertificate, CertificateType, SurgicalCase } from '../types/surgical';
+import { CEMET_LOGO_SRC, FIRMA_SELLO_SRC } from '../assets/branding';
 
 interface CertificatesViewProps {
   certificates: MedicalCertificate[];
@@ -1046,9 +1047,16 @@ Válido para presentación ante obra social, sanatorio o ámbito laboral.`;
                   <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3">
                     <div className="flex items-center gap-2">
                       <img
-                        src="/assets/cemet_logo.png"
-                        alt="CEMET"
-                        className="h-14 w-auto object-contain"
+                        src={CEMET_LOGO_SRC}
+                        alt="CEMET - Centro de Metástasis Hepáticas"
+                        className="h-16 sm:h-20 w-auto object-contain max-w-[210px]"
+                        crossOrigin="anonymous"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (target.src !== './assets/cemet_logo.png') {
+                            target.src = './assets/cemet_logo.png';
+                          }
+                        }}
                       />
                     </div>
                     <div className="text-right text-[11px] leading-tight text-slate-800">
@@ -1114,9 +1122,16 @@ Válido para presentación ante obra social, sanatorio o ámbito laboral.`;
                     {currentDisplayCert?.includeSignature ? (
                       <div className="flex flex-col items-center">
                         <img
-                          src="/assets/firma_sello_ciavarelli.png"
+                          src={FIRMA_SELLO_SRC}
                           alt="Firma y Sello Dr. Ciavarelli"
                           className="h-16 w-auto object-contain mb-0.5"
+                          crossOrigin="anonymous"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (target.src !== './assets/firma_sello_ciavarelli.png') {
+                              target.src = './assets/firma_sello_ciavarelli.png';
+                            }
+                          }}
                         />
                       </div>
                     ) : (
@@ -1138,9 +1153,16 @@ Válido para presentación ante obra social, sanatorio o ámbito laboral.`;
                   <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3">
                     <div className="flex items-center gap-2">
                       <img
-                        src="/assets/cemet_logo.png"
-                        alt="CEMET"
-                        className="h-14 w-auto object-contain"
+                        src={CEMET_LOGO_SRC}
+                        alt="CEMET - Centro de Metástasis Hepáticas"
+                        className="h-16 sm:h-20 w-auto object-contain max-w-[210px]"
+                        crossOrigin="anonymous"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (target.src !== './assets/cemet_logo.png') {
+                            target.src = './assets/cemet_logo.png';
+                          }
+                        }}
                       />
                     </div>
                     <div className="text-right text-[11px] leading-tight text-slate-800">
@@ -1206,9 +1228,16 @@ Válido para presentación ante obra social, sanatorio o ámbito laboral.`;
                     {currentDisplayCert?.includeSignature ? (
                       <div className="flex flex-col items-center">
                         <img
-                          src="/assets/firma_sello_ciavarelli.png"
+                          src={FIRMA_SELLO_SRC}
                           alt="Firma y Sello Dr. Ciavarelli"
                           className="h-16 w-auto object-contain mb-0.5"
+                          crossOrigin="anonymous"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (target.src !== './assets/firma_sello_ciavarelli.png') {
+                              target.src = './assets/firma_sello_ciavarelli.png';
+                            }
+                          }}
                         />
                       </div>
                     ) : (

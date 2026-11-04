@@ -18,10 +18,14 @@ import {
   Upload,
   Eye,
   Download,
-  CheckCircle2
+  CheckCircle2,
+  DollarSign,
+  TrendingDown,
+  TrendingUp,
 } from 'lucide-react';
-import { SurgicalCase, SurgicalMaterial, SurgeryStatus, MaterialStatus, AttachedDocument, DocumentType } from '../types/surgical';
+import { SurgicalCase, SurgicalMaterial, SurgeryStatus, MaterialStatus, AttachedDocument, DocumentType, BudgetStatus } from '../types/surgical';
 import { calculateAge, validateSurgicalCase } from '../lib/surgicalLogic';
+import { formatCurrency } from '../lib/currency';
 
 interface CaseEditModalProps {
   isOpen: boolean;
@@ -219,8 +223,20 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const bAmt = formData.budgetAmount !== undefined && formData.budgetAmount !== null && String(formData.budgetAmount).trim() !== ''
+      ? Number(formData.budgetAmount)
+      : undefined;
+    const bAppAmt = formData.budgetApprovedAmount !== undefined && formData.budgetApprovedAmount !== null && String(formData.budgetApprovedAmount).trim() !== ''
+      ? Number(formData.budgetApprovedAmount)
+      : undefined;
+    const bDiff = (bAmt !== undefined && bAppAmt !== undefined) ? (bAppAmt - bAmt) : undefined;
+
     const payload = {
       ...formData,
+      budgetAmount: bAmt,
+      budgetApprovedAmount: bAppAmt,
+      budgetDifference: bDiff,
+      estimatedSettlementAmount: bAppAmt !== undefined ? bAppAmt : (formData.estimatedSettlementAmount || bAmt),
       materials,
       attachedDocuments,
     };
@@ -629,6 +645,144 @@ export const CaseEditModal: React.FC<CaseEditModalProps> = ({
                       <option value="REPROGRAMADA">REPROGRAMADA</option>
                       <option value="CANCELADA">CANCELADA</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Presupuesto Quirúrgico & Honorarios Autorizados */}
+              <div className="bg-slate-800/40 border border-purple-500/30 rounded-xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-purple-400 uppercase tracking-wider">
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                    <span>Presupuesto Quirúrgico & Honorarios Autorizados</span>
+                  </div>
+                  <span className="text-[10px] bg-purple-950 text-purple-300 border border-purple-800/60 px-2 py-0.5 rounded font-mono">
+                    Control de Aranceles
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Estado del Presupuesto
+                    </label>
+                    <select
+                      value={formData.budgetStatus || 'PENDIENTE_APROBACION'}
+                      onChange={e => handleChange('budgetStatus', e.target.value as BudgetStatus)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="PENDIENTE_APROBACION">⏳ PENDIENTE DE APROBACIÓN</option>
+                      <option value="APROBADO">✅ APROBADO</option>
+                      <option value="OBSERVADO">⚠️ OBSERVADO</option>
+                      <option value="RECHAZADO">❌ RECHAZADO</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Monto Presupuestado Inicial ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs font-bold text-slate-500">$</span>
+                      <input
+                        type="number"
+                        step="1000"
+                        value={formData.budgetAmount !== undefined && formData.budgetAmount !== null ? formData.budgetAmount : ''}
+                        onChange={e => handleChange('budgetAmount', e.target.value ? parseFloat(e.target.value) : undefined)}
+                        placeholder="Ej. 1600000"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Monto Real Aprobado ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs font-bold text-slate-500">$</span>
+                      <input
+                        type="number"
+                        step="1000"
+                        value={formData.budgetApprovedAmount !== undefined && formData.budgetApprovedAmount !== null ? formData.budgetApprovedAmount : ''}
+                        onChange={e => handleChange('budgetApprovedAmount', e.target.value ? parseFloat(e.target.value) : undefined)}
+                        placeholder="Ej. 1000000"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm text-emerald-400 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    {formData.budgetAmount && !formData.budgetApprovedAmount && (
+                      <button
+                        type="button"
+                        onClick={() => handleChange('budgetApprovedAmount', formData.budgetAmount)}
+                        className="text-[10px] text-slate-400 hover:text-white underline mt-1 cursor-pointer"
+                      >
+                        Usar valor inicial (${Number(formData.budgetAmount).toLocaleString('es-AR')})
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Live Difference Badge if both amounts are provided */}
+                {formData.budgetAmount !== undefined && formData.budgetApprovedAmount !== undefined && (
+                  <div className="p-3 rounded-xl border border-slate-700/80 bg-slate-950/70 flex items-center justify-between text-xs flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      {Number(formData.budgetApprovedAmount) === Number(formData.budgetAmount) ? (
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Aprobado por el 100% de lo presupuestado</span>
+                        </div>
+                      ) : Number(formData.budgetApprovedAmount) < Number(formData.budgetAmount) ? (
+                        <div className="flex items-center gap-1.5 text-amber-300 font-bold">
+                          <TrendingDown className="w-4 h-4 text-amber-400" />
+                          <span>
+                            Diferencia arancelaria:{' '}
+                            <span className="font-mono text-amber-400">
+                              -${(Number(formData.budgetAmount) - Number(formData.budgetApprovedAmount)).toLocaleString('es-AR')}
+                            </span>
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                          <TrendingUp className="w-4 h-4" />
+                          <span>
+                            Incremento sobre presupuesto:{' '}
+                            <span className="font-mono text-emerald-400">
+                              +${(Number(formData.budgetApprovedAmount) - Number(formData.budgetAmount)).toLocaleString('es-AR')}
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Honorario final a liquidar: <strong className="text-emerald-400">${Number(formData.budgetApprovedAmount).toLocaleString('es-AR')}</strong>
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Fecha de Aprobación
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.budgetApprovalDate || ''}
+                      onChange={e => handleChange('budgetApprovalDate', e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Motivo o Aclaración del Cambio de Valor
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.budgetAdjustmentReason || ''}
+                      onChange={e => handleChange('budgetAdjustmentReason', e.target.value)}
+                      placeholder="Ej. Presupuestado por $1.600.000, aprobado por $1.000.000 por convenio"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
                   </div>
                 </div>
               </div>

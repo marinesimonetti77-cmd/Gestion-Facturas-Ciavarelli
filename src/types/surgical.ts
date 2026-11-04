@@ -5,7 +5,7 @@ export type BudgetStatus = 'PENDIENTE_APROBACION' | 'APROBADO' | 'RECHAZADO' | '
 export type MaterialStatus = 'SOLICITADO' | 'EN_CLINICA' | 'UTILIZADO' | 'DEVUELTO';
 export type InvoiceStatus = 'PENDIENTE' | 'EMITIDA' | 'EN_AUDITORIA' | 'OBSERVADA' | 'COBRADA' | 'VENCIDA';
 
-export type DocumentType = 'protocolo' | 'presupuesto' | 'historia_clinica' | 'factura' | 'comprobante' | 'liquidacion' | 'otro';
+export type DocumentType = 'protocolo' | 'presupuesto' | 'historia_clinica' | 'factura' | 'comprobante' | 'liquidacion' | 'certificado' | 'receta' | 'otro';
 
 export interface AttachedDocument {
   id: string;
@@ -40,6 +40,7 @@ export interface SurgicalCase {
   patientName: string;
   patientDni?: string;
   patientBirthDate?: string; // YYYY-MM-DD
+  patientGender?: string;
   patientPhone?: string;
   patientEmail?: string;
   patientAddress?: string;
